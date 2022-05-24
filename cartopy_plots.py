@@ -22,6 +22,10 @@ from cartopy.util import add_cyclic_point as acp
 logger = logging.getLogger(__name__)
 logger.level = logging.INFO
 
+path_to_here = str(Path(__file__).resolve().parent)
+if not path_to_here in sys.path:
+    sys.path.insert(1,path_to_here)
+
 from utilities import significative_data
 
 data_proj = ccrs.PlateCarree()
