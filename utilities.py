@@ -930,3 +930,61 @@ def average_with_significance(x:np.ndarray, axis=0, significance_level=0):
     significance = x_mean/x_std
 
     return x_mean, significance, significance_mask
+
+def significative_data(data, t_values=None, t=None, both=False, default_value=0):
+    '''
+    Filters `data` depending whether `t_values` exceeds a threshold `t`
+
+    Parameters
+    ----------
+    data : np.ndarray
+        data
+    t_values : np.ndarray, optional
+        significance values, by default None
+    t : float (>=0), optional
+        significance threshold, by default None
+    both : bool, optional
+        whether to return also the non significant data, by default False
+    default_value : float, optional
+        value to assign to non significant data, by default 0
+
+    Returns
+    -------
+    Out_taken : np.ndarray
+        data where the non significant values are set to `default_value`
+    Out_not_taken : np.ndarray, returned only if `both == True`
+        data where the significant values are set to `default_value` (complementary to `Out_taken`)
+    N_points_taken : int
+        number of significant datapoints
+    '''
+    if data is None:
+        if both:
+            return None, 0, 0
+        else:
+            return None, 0
+    
+    data = np.array(data)
+    
+    if t_values is None or t is None:
+        logger.warn('Assuming all data are significant')
+        if both:
+            return data, np.ones_like(data)*default_value, np.product(data.shape)
+        else:
+            return data, np.product(data.shape)
+        
+    t_values = np.array(t_values)
+    if data.shape != t_values.shape:
+        raise ValueError('Shape mismatch')
+
+    Out_taken = data.copy()
+
+    mask = t_values >= t
+    N_points_taken = np.sum(mask)
+    Out_taken[np.logical_not(mask)] = default_value
+    
+    if both:
+        Out_not_taken = data.copy()
+        Out_not_taken[mask] = default_value
+        return Out_taken, Out_not_taken, N_points_taken
+    else:
+        return Out_taken, N_points_taken
