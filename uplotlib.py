@@ -402,7 +402,7 @@ def std_dev(x):
         return x.s
     return 0.
 
-def avg(x, mean_std=False):
+def avg(x, weights=None, mean_std=False):
     '''
     Returns the average value of an array-like with error accounting fro the dispersion.
 
@@ -410,6 +410,8 @@ def avg(x, mean_std=False):
     ----------
     x : array-like
         array of values
+    weights : array-like, optional
+        array of the same shape as x to be used as weights for the mean and standard deviation
     mean_std : bool, optional
         Whether the error should be the dispersion of the sample (np.std(x)) or the error of the mean (np.std(x)/np.sqrt(len(x))), by default False
 
@@ -418,10 +420,21 @@ def avg(x, mean_std=False):
     unc.ufloat
         mean +/- std
     '''
-    m = np.mean(x)
-    s = np.std(x)
-    if mean_std:
-        s /= np.sqrt(len(x))
+    if weights is None:
+        m = np.mean(x)
+        s = np.std(x)
+        if mean_std:
+            s /= np.sqrt(len(x))
+    else:
+        x = np.array(x)
+        weights = np.array(weights)
+        weights /= np.sum(weights)
+
+        m = np.sum(weights*x)
+        s = np.sqrt(np.sum(weights*(x - m)**2))
+        if mean_std:
+            s /= np.sqrt(np.sum(weights != 0)) # count only non-zero weights
+    
     return unc.ufloat(m,s)
 
 
