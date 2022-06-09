@@ -456,7 +456,8 @@ def extract_nested(d_nested, key):
 
 def keys_exists(d_nested, key):
     '''
-    Check if *keys (nested) exists in `element` (dict). This is basically like extract_nested() but does not raise the KeyError as the output
+    Checks if `key` (str) appears in `d_nested` (nested dict) at some level of indentation.
+    This is basically like extract_nested() but does not raise the KeyError as the output
     '''
     try: 
         _element = extract_nested(d_nested, key)
