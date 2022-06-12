@@ -216,10 +216,11 @@ def execution_time(func):
 
     Examples
     --------
+    >>> logger.handlers = [logging.StreamHandler(sys.stdout)]
     >>> @execution_time
     ... def test(a):
     ...     time.sleep(1)
-    ...     print(a)
+    ...     logger.info(a)
     >>> test('Hi')
     test:
     Hi
@@ -481,7 +482,7 @@ def set_values_recursive(d_nested, d_flat, inplace=False):
     {'a': 'hello', 'b': {'a': 'hello', 'c': 8}}
     >>> d = {'a': 10, 'b': {'a': 10, 'c': 8}}
     >>> set_values_recursive(d, {'a': 'hello', 'z': 42}, inplace=False)
-    {'a': 'hello', 'b': {'a': 'hello', 'c': 8}} 
+    {'a': 'hello', 'b': {'a': 'hello', 'c': 8}}
     >>> d
     {'a': 10, 'b': {'a': 10, 'c': 8}}
     '''
@@ -637,6 +638,38 @@ def compose_permutations(permutations):
     for _p in ps[1:]:
         p = _p[p]
     return p
+
+def zipped_meshgrid(*xi):
+    '''
+    Creates a zipped meshgrid of a series of iterables. If some of the inputs are multidimensional, they are broadcasted only along the first axis.
+    See examples
+
+    Returns
+    -------
+    list[tuple]
+        zipped meshgrid: contains `np.prod([len(x) for x in xi])` tuples of `len(xi)`
+
+    Examples
+    --------
+    >>> zipped_meshgrid([1,2], [10,11,12])
+    [(1, 10), (1, 11), (1, 12), (2, 10), (2, 11), (2, 12)]
+    
+    >>> zipped_meshgrid([1,2], ['a','b'])
+    [(1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')]
+
+    >>> zipped_meshgrid([[1,2], [3,4]], ['a','b'])
+    [([1, 2], 'a'), ([1, 2], 'b'), ([3, 4], 'a'), ([3, 4], 'b')]
+
+    >>> zipped_meshgrid(np.array([[1,2], [3,4]]), ['a','b'])
+    [(array([1, 2]), 'a'), (array([1, 2]), 'b'), (array([3, 4]), 'a'), (array([3, 4]), 'b')]
+    '''
+    l = [range(len(x)) for x in xi]
+
+    mesh_i = list(zip(*[m.flatten() for m in np.meshgrid(*l, indexing='ij')]))
+
+    output = [tuple([xi[i][j] for i,j in enumerate(m_i)]) for m_i in mesh_i]
+
+    return output
 
 class Buffer():
     '''
