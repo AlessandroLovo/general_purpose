@@ -54,8 +54,8 @@ def draw_map(m, background='stock_img', **kwargs):
     Plots a background map using cartopy.
     Additional arguments are passed to the cartopy function gridlines
     
-    Parameters:
-    -----------
+    Parameters
+    ----------
         m: cartopy axis
         resolution: either 'low' or 'high'
         **kwargs: arguments passed to cartopy.gridlines
@@ -81,10 +81,10 @@ def geo_plotter(m, lon, lat, values, mode='contourf',
                  draw_coastlines=True, draw_gridlines=True, draw_labels=True,
                  greenwich=False, **kwargs):
     '''
-    Contourf plot together with coastlines and meridians
+    Multi-mode geographical plot
     
-    Parameters:
-    -----------
+    Parameters
+    ----------
         m: cartopy axis
         lon: 2D longidute array
         lat: 2D latitude array
@@ -98,6 +98,10 @@ def geo_plotter(m, lon, lat, values, mode='contourf',
         draw_gridlines: whether to draw the gridlines
         
         greenwich: if True automatically adds the Greenwich meridian to avoid gaps in the plot
+
+    Returns
+    -------
+    im : the plotted object
     '''
     if greenwich and mode in ['scatter', 'pcolormesh']:
         logger.warning('Ignoring greenwich kwarg')
@@ -399,11 +403,18 @@ def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latit
             'individual': every field has its own colorbar, centered around 0
             'shared': every field has the same colorbar, centered around 0
         by default 'individual'
+    mx : float or list[float], optional
+        maximum color value, by default None, which means it is computed automatically.
     titles : str or list[str], optional
         titles for each field, by default None
 
     **kwargs:
         passed to geo_plotter
+
+    Returns
+    -------
+    ims : list
+        list of the plotted objects, useful for accessing colorbars for example.
     '''
     
     if len(lon.shape) != len(lat.shape):
@@ -434,6 +445,7 @@ def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latit
         if not isinstance(mx, list):
             mx = [mx]*n_fields
 
+    ims = []
     norm = None
     if colorbar == 'shared':
         if mx is None:
@@ -458,9 +470,11 @@ def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latit
         if extents[i]:
             m.set_extent(extents[i])
 
-        geo_plotter(m, lon, lat, _f, title=titles[i], norm=norm, **kwargs)
+        ims.append(geo_plotter(m, lon, lat, _f, title=titles[i], norm=norm, **kwargs))
 
         fig.tight_layout()
+    
+    return ims
 
 def mfp(lon, lat, f,
          projections=[
