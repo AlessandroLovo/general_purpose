@@ -807,6 +807,51 @@ def module_from_file(module_name, file_path):
     spec.loader.exec_module(module)
     return module
 
+### FLEXIBLE file handling ###
+
+def first_valid_path(paths, filenames):
+    '''
+    Generates the first existing path combining a list of paths and filenames. Basically for every path it will check all the filenames. If none exist, it will move to the next path.
+    This is useful for handling multiple local folders, for example.
+
+    Parameters
+    ----------
+    paths : list[str|Path] or str or Path
+        list of possible paths or single path
+    filenames : list[str|Path] or str or Path
+        list of possible filenames or single filename
+
+    Raises
+    ------
+    FileNotFoundError
+        If no combination exists
+
+    Returns
+    -------
+    full_path : Path
+        first existing path
+    '''
+    if isinstance(paths, str) or isinstance(paths, Path):
+        paths = [paths]
+
+    if isinstance(filenames, str) or isinstance(filenames, Path):
+        filenames = [filenames]
+
+    found = False
+    for f in filenames:
+        for p in paths:
+            full_path = Path(p) / Path(f)
+            logger.debug(f'Checking {full_path}')
+            if full_path.exists():
+                logger.info(f'First valid path found in {full_path}')
+                found = True
+                break
+        if found:
+            break
+    if not found:
+        raise FileNotFoundError(f'Could not find a valid combination of {paths} and {filenames}')
+
+    return full_path
 
 ### OTHER GENERAL PURPOSE STUFF ###
 
