@@ -1,3 +1,13 @@
-General purpose python functions
+# General purpose python functions
 
-I did an update
+## `cartopy_plots`
+
+Functions for dealing with common geophysical data plots using the `cartopy` library.
+
+## `uplotlib`
+
+Utilities for dealing with data with uncertainties. Built on top of the `uncertainties` library, it provides tools mostly for plotting, but not only.
+
+## `utilities`
+
+Functions for improved logging (also to telegram), dealing with nested dictionaries, permutations and more.
