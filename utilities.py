@@ -9,6 +9,7 @@ Set of general purpose functions
 
 # import libraries
 import os
+import traceback
 import numpy as np
 import sys
 from functools import wraps
@@ -298,7 +299,7 @@ def new_telegram_handler(chat_ID=None, token=None, level=logging.WARNING, format
 class TelegramLogger():
     def __init__(self, logger: logging.Logger, chat_ID: int=None, token: str=None, level=logging.INFO):
         '''
-        Telegram logger to be used with a `with` statement
+        Telegram logger to be used with a `with` statement. If an unhandled exception is raised in the with block, the traceback will also be logged to telegram with level logging.ERROR
 
         Parameters
         ----------
@@ -339,7 +340,9 @@ class TelegramLogger():
 
         return self
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        if exc_type is not None:
+            self.logger.error(traceback.format_exc())
         if self.th is not None:
             self.logger.handlers.remove(self.th)
             self.logger.debug('Removed telegram logger')
