@@ -264,6 +264,9 @@ def new_telegram_handler(chat_ID=None, token=None, level=logging.WARNING, format
         handler that logs to telegram
     '''
     import telegram_handler # NOTE: to install this package run pip install python-telegram-handler
+    if chat_ID is None or token is None:
+        return
+    
     try:
         if token.startswith('~'):
             token = f"{os.environ['HOME']}{token[1:]}"
@@ -291,6 +294,55 @@ def new_telegram_handler(chat_ID=None, token=None, level=logging.WARNING, format
     th.setLevel(level)
     return th
 
+
+class TelegramLogger():
+    def __init__(self, logger: logging.Logger, chat_ID: int=None, token: str=None, level=logging.INFO):
+        '''
+        Telegram logger to be used with a `with` statement
+
+        Parameters
+        ----------
+        logger : logging.Logger
+            logger to which to add a telegram handler
+        chat_ID : int or str
+            telegram chat id of to user to which send messages or path to a file containing this number
+        token : str
+            telegram bot token or path to a file containing it
+        level : int, optional
+            logging level, by default logging.INFO
+
+        Examples
+        --------
+        >>> with TelegramLogger(logging.getLogger(), '~/telegram_chat_ID.txt', '~/telegram_bot_token.txt', level=logging.WARNING):
+        >>>     logging.error('Oh no an error occurred')
+
+        You can also use a specific logger instead of the root one
+        >>> logger = logging.getLogger('myLogger')
+        >>> with TelegramLogger(logger, '~/telegram_chat_ID.txt', '~/telegram_bot_token.txt', level=logging.WARNING):
+        >>>     logger.error('Oh no an error occurred')
+        '''
+        self.logger = logger
+        self.chat_ID = chat_ID
+        self.token = token
+        self.level = int(level)
+        self.th = None
+
+    def __enter__(self):
+        try:
+            self.th = new_telegram_handler(self.chat_ID, self.token, level=self.level)
+        except:
+            self.logger.error('Failed to add telegram logger')
+
+        if self.th is not None:
+            self.logger.handlers.append(self.th)
+            self.logger.debug('Added telegram logger')
+
+        return self
+
+    def __exit__(self, type, value, traceback):
+        if self.th is not None:
+            self.logger.handlers.remove(self.th)
+            self.logger.debug('Removed telegram logger')
 
 ########## ARGUMENT PARSING ####################
 
