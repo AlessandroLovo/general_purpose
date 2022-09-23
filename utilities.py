@@ -267,7 +267,11 @@ def new_telegram_handler(chat_ID=None, token=None, level=logging.WARNING, format
     th: telegram_handler.handlers.TelegramHandler
         handler that logs to telegram
     '''
-    import telegram_handler # NOTE: to install this package run pip install python-telegram-handler
+    try:
+        import telegram_handler # NOTE: to install this package run pip install python-telegram-handler
+    except ImportError:
+        logger.error('To be able to log to telegram, you need the package telegram_handler. You can install it with `pip install python-telegram-handler`')
+        return 
     if chat_ID is None or token is None:
         return
     
