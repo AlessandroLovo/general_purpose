@@ -276,20 +276,22 @@ def new_telegram_handler(chat_ID=None, token=None, level=logging.WARNING, format
         return
     
     try:
-        if token.startswith('~'):
-            token = f"{os.environ['HOME']}{token[1:]}"
-        with open(token, 'r') as token_file:
-            token = token_file.readline().rstrip('\n')
-    except FileNotFoundError:
-        pass # we assume that `token` is the actual token, not the path to it
-    
-    try:
         chat_ID = int(chat_ID)
     except: # `chat_ID is either string or path`
         if isinstance(chat_ID, str) and chat_ID.startswith('~'):
             chat_ID = f"{os.environ['HOME']}{chat_ID[1:]}"
         with open(chat_ID, 'r') as chat_ID_file:
             chat_ID = int(chat_ID_file.readline().rstrip('\n'))
+    if not chat_ID: # chat ID 0 disables the logger
+        return
+
+    try:
+        if token.startswith('~'):
+            token = f"{os.environ['HOME']}{token[1:]}"
+        with open(token, 'r') as token_file:
+            token = token_file.readline().rstrip('\n')
+    except FileNotFoundError:
+        pass # we assume that `token` is the actual token, not the path to it
     
     th = telegram_handler.handlers.TelegramHandler(token=token, chat_id=chat_ID, **kwargs)
     if isinstance(formatter, str):
