@@ -402,7 +402,7 @@ def std_dev(x):
         return x.s
     return 0.
 
-def avg(x, weights=None, mean_std=False):
+def avg(x:np.ndarray, weights=None, axis=None, mean_std=False):
     '''
     Returns the average value of an array-like with error accounting fro the dispersion.
 
@@ -412,6 +412,8 @@ def avg(x, weights=None, mean_std=False):
         array of values
     weights : array-like, optional
         array of the same shape as x to be used as weights for the mean and standard deviation
+    axis : int
+        axis over which to perform the average, if None the array is first flattened
     mean_std : bool, optional
         Whether the error should be the dispersion of the sample (np.std(x)) or the error of the mean (np.std(x)/np.sqrt(len(x))), by default False
 
@@ -420,22 +422,34 @@ def avg(x, weights=None, mean_std=False):
     unc.ufloat
         mean +/- std
     '''
-    if weights is None:
-        m = np.mean(x)
-        s = np.std(x)
-        if mean_std:
-            s /= np.sqrt(len(x))
-    else:
+    if not isinstance(x, np.ndarray):
         x = np.array(x)
-        weights = np.array(weights)
-        weights /= np.sum(weights)
-
-        m = np.sum(weights*x)
-        s = np.sqrt(np.sum(weights*(x - m)**2))
+    if weights is None:
+        if axis is None:
+            x = x.reshape(-1)
+            axis = 0
+        m = np.mean(x,axis=axis)
+        s = np.std(x,axis=axis)
         if mean_std:
-            s /= np.sqrt(np.sum(weights != 0)) # count only non-zero weights
+            s /= np.sqrt(x.shape[axis])
+    else:
+        if not isinstance(weights, np.ndarray):
+            weights = np.array(weights)
+        if weights.shape != x.shape:
+            weights = np.ones_like(x)*weights # broadcast
+        if axis is None:
+            x = x.reshape(-1)
+            weights = weights.reshape(-1)
+            axis = 0
+
+        weights /= np.sum(weights, axis=axis)
+
+        m = np.sum(weights*x, axis=axis)
+        s = np.sqrt(np.sum(weights*(x - m)**2, axis=axis))
+        if mean_std:
+            s /= np.sqrt(np.sum(weights != 0, axis=axis)) # count only non-zero weights
     
-    return unc.ufloat(m,s)
+    return ufloatify(m,s)
 
 
 def _safe_ufloat_fromstr(x):
