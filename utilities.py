@@ -240,14 +240,17 @@ def execution_time(func):
 
 def new_telegram_handler(chat_ID=None, token=None, level=logging.WARNING, formatter=default_formatter, **kwargs):
     '''
-    Creates a telegram handler object
+    Creates a telegram handler object.
+    
+    To log to telegram you need to use a telegram Bot. You can create one by typing the command /newbot in the chat with the BotFather. When you finalize your bot, the BotFather will give you the authorization token.
+    To be able to receive messages from the bot you will first need to start a chat with it using the command /start
 
     Parameters
     ----------
-    chat_ID : int or str or None, optional
-        chat ID of the telegram user or group to whom send the logs. If None it is the last used. If str it is a path to a file where it is stored.
+    chat_ID : int or str, optional
+        chat ID of the telegram user or group to whom send the logs. If str it is a path to a file where it is stored.
         To find your chat ID go to telegram and search for 'userinfobot' and type '/start'. The bot will provide you with your chat ID.
-        You can do the same with a telegram group, and, in this case, you will need to invite 'ENSMLbot' to the group.
+        You can do the same with a telegram group, and, in this case, you will need to invite 'MyBot' to the group.
         The default is None.
     token: str
         token for the telegram bot or path to a text file where the first line is the token
@@ -297,20 +300,28 @@ def new_telegram_handler(chat_ID=None, token=None, level=logging.WARNING, format
 
 
 class TelegramLogger():
-    def __init__(self, logger: logging.Logger, chat_ID: int=None, token: str=None, level=logging.INFO):
+    def __init__(self, logger: logging.Logger, chat_ID: int=None, token: str=None, level=logging.INFO, **kwargs):
         '''
         Telegram logger to be used with a `with` statement. If an unhandled exception is raised in the with block, the traceback will also be logged to telegram with level logging.ERROR
+
+        To log to telegram you need to use a telegram Bot. You can create one by typing the command /newbot in the chat with the BotFather. When you finalize your bot, the BotFather will give you the authorization token.
+        To be able to receive messages from the bot you will first need to start a chat with it using the command /start
 
         Parameters
         ----------
         logger : logging.Logger
             logger to which to add a telegram handler
-        chat_ID : int or str
-            telegram chat id of to user to which send messages or path to a file containing this number
-        token : str
-            telegram bot token or path to a file containing it
+            chat_ID : int or str, optional
+            chat ID of the telegram user or group to whom send the logs. If str it is a path to a file where it is stored.
+            To find your chat ID go to telegram and search for 'userinfobot' and type '/start'. The bot will provide you with your chat ID.
+            You can do the same with a telegram group, and, in this case, you will need to invite 'MyBot' to the group.
+            The default is None.
+        token: str
+            token for the telegram bot or path to a text file where the first line is the token
         level : int, optional
             logging level, by default logging.INFO
+
+        Additional arguments will be passed to `new_telegram_handler`
 
         Examples
         --------
@@ -326,11 +337,13 @@ class TelegramLogger():
         self.chat_ID = chat_ID
         self.token = token
         self.level = int(level)
+        self.nth_kwargs = kwargs
+
         self.th = None
 
     def __enter__(self):
         try:
-            self.th = new_telegram_handler(self.chat_ID, self.token, level=self.level)
+            self.th = new_telegram_handler(self.chat_ID, self.token, level=self.level, **self.nth_kwargs)
         except:
             self.logger.error('Failed to add telegram logger')
 
