@@ -33,8 +33,12 @@ def plot(*args, ax=None, **kwargs):
 
     x_val = nominal_value(xs)
     x_err = std_dev(xs)
+    if np.nansum(x_err) == 0:
+        x_err = None
     y_val = nominal_value(ys)
     y_err = std_dev(ys)
+    if np.nansum(y_err) == 0:
+        y_err = None
 
     if ax is None:
         ax = plt
