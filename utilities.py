@@ -309,7 +309,7 @@ def new_telegram_handler(chat_ID=None, token=None, level=logging.WARNING, format
 class CMLogger():
     def __init__(self, logger: logging.Logger, level=logging.INFO):
         self.logger = logger
-        self.level = level
+        self.level = int(level)
 
         self.handler = None
 
@@ -320,7 +320,7 @@ class CMLogger():
         try:
             self.create_new_handler()
         except:
-            self.logger.error(f'Failed to create new handler for {self.__class__.__name__}')
+            self.logger.error(f'Failed to create new handler for {self.__class__.__name__} due to \n\n{traceback.format_exc()}')
 
         if self.handler is not None:
             self.logger.handlers.append(self.handler)
