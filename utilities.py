@@ -304,8 +304,39 @@ def new_telegram_handler(chat_ID=None, token=None, level=logging.WARNING, format
     th.setLevel(level)
     return th
 
+#### LOGGERS AS CONTEXT MANAGERS ####
 
-class TelegramLogger():
+class CMLogger():
+    def __init__(self, logger: logging.Logger, level=logging.INFO):
+        self.logger = logger
+        self.level = level
+
+        self.handler = None
+
+    def create_new_handler(self):
+        raise NotImplementedError('This is the base class you fool!')
+
+    def __enter__(self):
+        try:
+            self.create_new_handler()
+        except:
+            self.logger.error(f'Failed to create new handler for {self.__class__.__name__}')
+
+        if self.handler is not None:
+            self.logger.handlers.append(self.handler)
+            self.logger.debug(f'Added {self.__class__.__name__}')
+
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        if self.handler is not None:
+            if exc_type is not None:
+                self.logger.error(traceback.format_exc())
+            self.logger.handlers.remove(self.handler)
+            self.logger.debug(f'Removed {self.__class__.__name__}')
+
+
+class TelegramLogger(CMLogger):
     def __init__(self, logger: logging.Logger, chat_ID: int=None, token: str=None, level=logging.INFO, **kwargs):
         '''
         Telegram logger to be used with a `with` statement. If an unhandled exception is raised in the with block, the traceback will also be logged to telegram with level logging.ERROR
@@ -339,32 +370,49 @@ class TelegramLogger():
         >>> with TelegramLogger(logger, '~/telegram_chat_ID.txt', '~/telegram_bot_token.txt', level=logging.WARNING):
         >>>     logger.error('Oh no an error occurred')
         '''
-        self.logger = logger
+        super().__init__(logger=logger, level=level)
         self.chat_ID = chat_ID
         self.token = token
-        self.level = int(level)
-        self.nth_kwargs = kwargs
+        self.kwargs = kwargs
 
-        self.th = None
+    def create_new_handler(self):
+        self.handler = new_telegram_handler(self.chat_ID, self.token, level=self.level, **self.kwargs)
 
-    def __enter__(self):
-        try:
-            self.th = new_telegram_handler(self.chat_ID, self.token, level=self.level, **self.nth_kwargs)
-        except:
-            self.logger.error('Failed to add telegram logger')
+class FileLogger(CMLogger):
+    def __init__(self, logger: logging.Logger, filename: str, level=logging.INFO, **kwargs):
+        '''
+        Logger to file to be used with the `with` statement. If an unhandled exception is raised in the with block, the traceback will also be logged to the file with level logging.ERROR
 
-        if self.th is not None:
-            self.logger.handlers.append(self.th)
-            self.logger.debug('Added telegram logger')
+        Parameters
+        ----------
+        logger : logging.Logger
+            logger to which to add a file handler
+        filename : str|Path
+            path to the file to log to. If it is inside a directory that doesn't exist, the tree of directories is created
+        level : int, optional
+            logging level, by default logging.INFO
 
-        return self
+        Additional arguments are passed to logging.FileHandler constructor. For example, the mode with which to open the file (default 'a')
 
-    def __exit__(self, exc_type, exc_value, exc_traceback):
-        if exc_type is not None:
-            self.logger.error(traceback.format_exc())
-        if self.th is not None:
-            self.logger.handlers.remove(self.th)
-            self.logger.debug('Removed telegram logger')
+        Examples
+        --------
+        >>> with FileLogger(logging.getLogger(), 'log.log', level=logging.WARNING):
+        >>>     logging.error('Oh no an error occurred')
+
+        You can also use a specific logger instead of the root one
+        >>> logger = logging.getLogger('myLogger')
+        >>> with FileLogger(logger, 'log.log', level=logging.WARNING):
+        >>>     logger.error('Oh no an error occurred')
+        '''
+        super().__init__(logger=logger, level=level)
+        self.filename = Path(filename)
+        self.kwargs = kwargs
+
+    def create_new_handler(self):
+        parent_dir = self.filename.parent
+        if not parent_dir.exists():
+            parent_dir.mkdir(parents=True, exist_ok=True)
+        self.handler = logging.FileHandler(filename=self.filename, **self.kwargs)
 
 ########## ARGUMENT PARSING ####################
 
