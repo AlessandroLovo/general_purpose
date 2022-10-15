@@ -446,15 +446,18 @@ def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latit
             mx = [mx]*n_fields
 
     ims = []
-    norm = None
+    norm = kwargs.pop('norm', None)
     if colorbar == 'shared':
-        if mx is None:
-            mx = max(-np.min(f), np.max(f)) or 1
-        norm = matplotlib.colors.TwoSlopeNorm(vcenter=0., vmin=-mx, vmax=mx)
+        if norm is None:
+            if mx is None:
+                mx = max(-np.min(f), np.max(f)) or 1
+            norm = matplotlib.colors.TwoSlopeNorm(vcenter=0., vmin=-mx, vmax=mx)
+        else:
+            logger.warning('Using provided norm')
 
     for i in range(n_fields):
         _f = f[...,i]
-        if colorbar == 'individual':
+        if norm is None and colorbar == 'individual':
             _mx = mx[i]
             if _mx is None:
                 _mx = max(-np.min(_f), np.max(_f)) or 1
