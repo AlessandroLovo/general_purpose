@@ -457,11 +457,12 @@ def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latit
 
     for i in range(n_fields):
         _f = f[...,i]
-        if norm is None and colorbar == 'individual':
+        _norm = norm
+        if _norm is None and colorbar == 'individual':
             _mx = mx[i]
             if _mx is None:
                 _mx = max(-np.min(_f), np.max(_f)) or 1
-            norm = matplotlib.colors.TwoSlopeNorm(vcenter=0., vmin=-_mx, vmax=_mx)
+            _norm = matplotlib.colors.TwoSlopeNorm(vcenter=0., vmin=-_mx, vmax=_mx)
 
         if fig_num is not None:
             plt.close(fig_num + i)
@@ -473,7 +474,7 @@ def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latit
         if extents[i]:
             m.set_extent(extents[i])
 
-        ims.append(geo_plotter(m, lon, lat, _f, title=titles[i], norm=norm, **kwargs))
+        ims.append(geo_plotter(m, lon, lat, _f, title=titles[i], norm=_norm, **kwargs))
 
         fig.tight_layout()
     
