@@ -96,7 +96,7 @@ def geo_plotter(m, lon, lat, values, mode='contourf',
         put_colorbar: whether to show a colorbar
         draw_coastlines: whether to draw the coastlines
         draw_gridlines: whether to draw the gridlines
-        
+        draw_labels: whether to draw the tick labels with lon and lat
         greenwich: if True automatically adds the Greenwich meridian to avoid gaps in the plot
 
     Returns
@@ -490,9 +490,13 @@ def mfp(lon, lat, f,
         extents=[None, None, (-5, 10, 39, 60)],
         titles=['Temperature [K]', 'Geopotential [m]', 'Soil Moisture [m]'],
         mode='pcolormesh',
+        draw_gridlines=False, draw_labels=False,
         **kwargs):
     '''Simply multiple field plot with useful default arguments'''
-    return multiple_field_plot(lon, lat, f, projections=projections, fig_num=fig_num, extents=extents, titles=titles, mode=mode, **kwargs)
+    return multiple_field_plot(lon, lat, f,
+                               projections=projections, fig_num=fig_num, extents=extents, titles=titles, mode=mode,
+                               draw_gridlines=draw_gridlines, draw_labels=draw_labels,
+                               **kwargs)
 
 
     
