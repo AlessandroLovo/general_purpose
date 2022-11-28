@@ -7,6 +7,16 @@ import uncertainties as unc
 from scipy import stats
 from lmfit.models import GaussianModel
 
+import logging
+import sys
+
+if __name__ == '__main__':
+    logger = logging.getLogger()
+    logger.handlers = [logging.StreamHandler(sys.stdout)]
+else:
+    logger = logging.getLogger(__name__)
+logger.level = logging.INFO
+
 
 def plot(*args, ax=None, **kwargs):
     '''
@@ -384,7 +394,11 @@ def nominal_value(x):
     if isinstance(x, str):
         if 'j' in x:
             return complex(x)
-        return unc.ufloat_fromstr(x).n
+        try:
+            return unc.ufloat_fromstr(x).n
+        except:
+            logger.warning(f'Could not parse string {x}, returning it')
+            return x
     if isinstance(x, unc.core.AffineScalarFunc):
         return x.n
     return float(x)
@@ -401,7 +415,11 @@ def std_dev(x):
     if isinstance(x, str):
         if 'j' in x: # complex number
             return 0.
-        return unc.ufloat_fromstr(x).s
+        try:
+            return unc.ufloat_fromstr(x).s
+        except:
+            logger.warning(f'Could not parse string {x}, assuming std is 0')
+            return 0.
     if isinstance(x, unc.core.AffineScalarFunc):
         return x.s
     return 0.
