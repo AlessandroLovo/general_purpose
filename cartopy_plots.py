@@ -376,8 +376,8 @@ def ShowArea(lon_mask, lat_mask, field_mask, coords=[-7,15,40,60], **kwargs):
     return fig, m
 
 
-def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latitude=90), extents=None, figsize=(9,6), fig_num=None,
-                        colorbar='individual', mx=None, titles=None, **kwargs):
+def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latitude=90), extents=None, figsize=(9,6), fig_num=None, one_fig=False,
+                        colorbar='individual', mx=None, titles=None, apply_tight_layout=True, **kwargs):
     '''
     Plots several fields
 
@@ -455,6 +455,16 @@ def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latit
         else:
             logger.warning('Using provided norm')
 
+    put_colorbar = kwargs.pop('put_colorbar', True)
+    common_colorbar = False
+    if one_fig:
+        if colorbar == 'shared' and put_colorbar:
+            put_colorbar = False
+            common_colorbar = True
+        _code = n_fields*10 + 100
+        plt.close(fig_num)
+        fig = plt.figure(num=fig_num, figsize=figsize)
+
     for i in range(n_fields):
         _f = f[...,i]
         _norm = norm
@@ -463,20 +473,32 @@ def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latit
             if _mx is None:
                 _mx = max(-np.min(_f), np.max(_f)) or 1
             _norm = matplotlib.colors.TwoSlopeNorm(vcenter=0., vmin=-_mx, vmax=_mx)
-
-        if fig_num is not None:
-            plt.close(fig_num + i)
-            fig = plt.figure(figsize=figsize, num=fig_num + i)
+        
+        if one_fig:
+            code = _code + i + 1
         else:
-            fig = plt.figure(figsize=figsize)
+            code = 111
+            if fig_num is not None:
+                plt.close(fig_num + i)
+                fig = plt.figure(figsize=figsize, num=fig_num + i)
+            else:
+                fig = plt.figure(figsize=figsize)
 
-        m = fig.add_subplot(projection = projections[i])
+        m = fig.add_subplot(code, projection = projections[i])
         if extents[i]:
             m.set_extent(extents[i])
 
-        ims.append(geo_plotter(m, lon, lat, _f, title=titles[i], norm=_norm, **kwargs))
+        ims.append(geo_plotter(m, lon, lat, _f, title=titles[i], norm=_norm, put_colorbar=put_colorbar, **kwargs))
 
-        fig.tight_layout()
+        if not one_fig and apply_tight_layout:
+            fig.tight_layout()
+
+        
+    if one_fig:
+        if common_colorbar:
+            plt.colorbar(ims[-1], label=kwargs.pop('colorbar_label', None), extend='both')
+        if apply_tight_layout:
+            fig.tight_layout()
     
     return ims
 
