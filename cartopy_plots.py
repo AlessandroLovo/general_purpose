@@ -376,7 +376,7 @@ def ShowArea(lon_mask, lat_mask, field_mask, coords=[-7,15,40,60], **kwargs):
     return fig, m
 
 
-def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latitude=90), extents=None, figsize=(9,6), fig_num=None, one_fig=False,
+def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latitude=90), extents=None, figsize=(9,6), fig_num=None, one_fig_layout=False,
                         colorbar='individual', mx=None, titles=None, apply_tight_layout=True, **kwargs):
     '''
     Plots several fields
@@ -457,11 +457,13 @@ def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latit
 
     put_colorbar = kwargs.pop('put_colorbar', True)
     common_colorbar = False
-    if one_fig:
+    if one_fig_layout:
         if colorbar == 'shared' and put_colorbar:
             put_colorbar = False
             common_colorbar = True
-        _code = n_fields*10 + 100
+        if np.prod([int(j) for j in str(one_fig_layout) if int(j) > 0]) < n_fields:
+            logger.warning(f'The provided layout ({one_fig_layout}) cannot accommodate all the {n_fields} plots, switching to one that can')
+            one_fig_layout = n_fields*10 + 100
         plt.close(fig_num)
         fig = plt.figure(num=fig_num, figsize=figsize)
 
@@ -474,8 +476,8 @@ def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latit
                 _mx = max(-np.min(_f), np.max(_f)) or 1
             _norm = matplotlib.colors.TwoSlopeNorm(vcenter=0., vmin=-_mx, vmax=_mx)
         
-        if one_fig:
-            code = _code + i + 1
+        if one_fig_layout:
+            code = one_fig_layout + i + 1
         else:
             code = 111
             if fig_num is not None:
@@ -490,11 +492,11 @@ def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latit
 
         ims.append(geo_plotter(m, lon, lat, _f, title=titles[i], norm=_norm, put_colorbar=put_colorbar, **kwargs))
 
-        if not one_fig and apply_tight_layout:
+        if not one_fig_layout and apply_tight_layout:
             fig.tight_layout()
 
         
-    if one_fig:
+    if one_fig_layout:
         if common_colorbar:
             plt.colorbar(ims[-1], label=kwargs.pop('colorbar_label', None), extend='both')
         if apply_tight_layout:
