@@ -473,6 +473,18 @@ def avg(x:np.ndarray, weights=None, axis=None, mean_std=False):
     
     return ufloatify(m,s)
 
+def mad(x:np.ndarray, axis=None):
+    '''
+    Returns the median of the absolute deviations from the median. Useful for robust estimates.
+    '''
+    m = np.median(x, axis=axis)
+    return np.median(np.abs(x - m), axis=axis)
+
+def robust_avg(x:np.ndarray, axis=None):
+    m = np.median(x, axis=axis)
+    s = 1.4826*mad(x, axis=axis)
+    return ufloatify(m,s)
+
 
 def _safe_ufloat_fromstr(x):
     '''
