@@ -542,7 +542,7 @@ def collapse_dict(d_nested, d_flat=None):
             d_flat[k] = v
     return d_flat
 
-def extract_nested(d_nested, key):
+def extract_nested(d_nested, key, if_not_found='raise'):
     '''
     Method to access items in a nested dictionary
 
@@ -551,6 +551,10 @@ def extract_nested(d_nested, key):
     d_nested : dict
         nested dictionary
     key : str
+    if_not_found : Any, optional
+        What to do if the key is not found in the dictionary.
+        If 'raise' (default) a KeyError is raised. Otherwise, the value provided is returned instead of raising an error.
+        This mimics the effect of the `get` function of dictionaries.
     
     Returns
     -------
@@ -571,6 +575,7 @@ def extract_nested(d_nested, key):
     {'z': 1, 'w': {'q': 20}}
     >>> extract_nested(d, 'q')
     20
+    >>> extract_nested(d, 'v', 14)
     '''
     try: 
         return d_nested[key]
@@ -581,6 +586,10 @@ def extract_nested(d_nested, key):
                     return extract_nested(v, key)
                 except KeyError:
                     continue
+        # the key has not been found
+        comparison = if_not_found != 'raise' # if `if_not_found` is np.array or xr.DataArray the comparison will be iterable
+        if hasattr(comparison, '__iter__') or comparison:
+            return if_not_found
         raise KeyError(f'{key} is not a valid key')
 
 def keys_exists(d_nested, key):
