@@ -376,6 +376,7 @@ def ShowArea(lon_mask, lat_mask, field_mask, coords=[-7,15,40,60], **kwargs):
     return fig, m
 
 
+
 def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latitude=90), extents=None, figsize=(9,6), fig_num=None, one_fig_layout=False,
                         colorbar='individual', mx=None, titles=None, apply_tight_layout=True, **kwargs):
     '''
@@ -504,7 +505,7 @@ def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latit
     
     return ims
 
-def mfp(lon, lat, f,
+def mfp(lon, lat, f,  # This functions maps to multiple_field_plot() and not the merge conflict multiple_field_plot2()
          projections=[
             ccrs.Orthographic(central_latitude=90),
             ccrs.Orthographic(central_latitude=90),
@@ -520,8 +521,107 @@ def mfp(lon, lat, f,
     return multiple_field_plot(lon, lat, f,
                                projections=projections, fig_num=fig_num, extents=extents, titles=titles, mode=mode,
                                draw_gridlines=draw_gridlines, draw_labels=draw_labels,
-                               **kwargs)
+                               **kwargs) 
 
+def multiple_field_plot2(lon, lat, f, projections=ccrs.Orthographic(central_latitude=90), extents=None, 
+                        figsize=(9,6), fig_num=None, figure=None, axes=None, levs=None, use_norm=True,
+                        colorbar='individual', titles=None, **kwargs):
+    '''
+    Plots several fields
+    Parameters
+    ----------
+    lon : np.ndarray
+        longitude: either 1D or meshgridded
+    lat : np.ndarray
+        latitude: either 1D or meshgridded
+    f : np.ndarray
+        fields to plot, with shape (lat, lon, nfields)
+    projections : ccrs.Projection or list[ccrs.Projection], optional
+        projection to use for each field, by default ccrs.Orthographic(central_latitude=90)
+    extents : tuple or list[tuple], optional
+        extents to apply to each field, by default None
+    figsize : tuple, optional
+        figure size, by default (9,6)
+    fig_num : int, optional
+        figure number of the first field, by default None
+    figure : figure, optional
+        The figure handle is provided
+    axes : axes, optional,
+        If the axes are provided then they would be reused, otherwise make new ones
+    levs : list, optional,
+        If provided it will mark the maximal and minimal value
+    use_norm : bool, optional,
+        If use_norm=False then levels=levs will be used instead
+    colorbar : 'individual', 'shared', 'disabled', optional
+        How to plot the colorbar:
+            'disabled': every field has its own colorbar, not centerd around 0
+            'individual': every field has its own colorbar, centered around 0
+            'shared': every field has the same colorbar, centered around 0
+        by default 'individual'
+    titles : str or list[str], optional
+        titles for each field, by default None
+    **kwargs:
+        passed to geo_plotter
+    '''
+    if len(lon.shape) != len(lat.shape):
+        raise ValueError('lon and lat must have the same number of dimensions')
+    if len(lon.shape) == 1:
+        lon, lat = np.meshgrid(lon, lat)
+
+    if lon.shape != f.shape[:2]:
+        raise ValueError('f must have the first 2 dimensions with the same shape of lon and lat')
+
+    if len(f.shape) == 3:
+        n_fields = f.shape[2]
+    else:
+        n_fields = 1
+
+    # broadcast
+    if not isinstance(projections, list):
+        projections = [projections]*n_fields
+    if not isinstance(extents, list):
+        extents = [extents]*n_fields
+    if not isinstance(titles, list):
+        titles = [titles]*n_fields
+
+    norm = None
+    if colorbar == 'shared':
+        if levs is None:
+            mx = max(-np.min(f), np.max(f)) or 1
+            norm = matplotlib.colors.TwoSlopeNorm(vcenter=0., vmin=-mx, vmax=mx)
+        else:
+            norm = matplotlib.colors.TwoSlopeNorm(vcenter=np.mean(levs), vmin=levs[0], vmax=levs[-1])
+
+    for i in range(n_fields):
+        _f = f[...,i]
+        if colorbar == 'individual':
+            if levs is None:
+                mx = max(-np.min(_f), np.max(_f)) or 1
+                norm = matplotlib.colors.TwoSlopeNorm(vcenter=0., vmin=-mx, vmax=mx)
+            else:
+                norm = matplotlib.colors.TwoSlopeNorm(vcenter=np.mean(levs), vmin=levs[0], vmax=levs[-1])
+        print(f'{norm = }')
+        if figure is None:
+            if fig_num is not None:
+                plt.close(fig_num + i)
+                fig = plt.figure(figsize=figsize, num=fig_num + i)
+            else:
+                fig = plt.figure(figsize=figsize)
+        else:
+            fig = figure
+        if axes is None:
+            m = fig.add_subplot(projection = projections[i])
+            if extents[i]:
+                m.set_extent(extents[i])
+        else:
+            m = axes
+        if use_norm:
+            geo_plotter(m, lon, lat, _f, title=titles[i], norm=norm, **kwargs)
+        else:
+            geo_plotter(m, lon, lat, _f, title=titles[i], levels=levs, **kwargs)
+
+        fig.tight_layout()
+        return m
 
     
 
