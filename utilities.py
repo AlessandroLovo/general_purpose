@@ -426,6 +426,7 @@ class Reshaper(object):
         self._inv_index_map_flat = None
 
         self.reshaped_dimensions = len(self.reshape_mask.shape)
+        self.surviving_coords = np.sum(self.reshape_mask)
     
     def reshape(self, X:np.ndarray):
         return X[...,self.reshape_mask]
@@ -470,7 +471,7 @@ class Reshaper(object):
 
     def compute_inv_index_map_flat(self):
         self._inv_index_map_flat = np.array([i for i,v in enumerate(self.index_map.reshape(-1)) if v != -1])
-        assert self._inv_index_map_flat.shape == (np.sum(self.reshape_mask),)
+        assert self._inv_index_map_flat.shape == (self.surviving_coords,)
 
 ########## ARGUMENT PARSING ####################
 
