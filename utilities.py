@@ -414,6 +414,64 @@ class FileLogger(CMLogger):
             parent_dir.mkdir(parents=True, exist_ok=True)
         self.handler = logging.FileHandler(filename=self.filename, **self.kwargs)
 
+
+
+#### Reshape data to remove zero-variance features ####
+
+class Reshaper(object):
+    def __init__(self, reshape_mask, fill_value=0):
+        self.reshape_mask = reshape_mask
+        self.fill_value = fill_value
+        self._index_map = None
+        self._inv_index_map_flat = None
+
+        self.reshaped_dimensions = len(self.reshape_mask.shape)
+    
+    def reshape(self, X:np.ndarray):
+        return X[...,self.reshape_mask]
+
+    def inv_reshape(self, X:np.ndarray):
+        _X = self.fill_value*np.ones(X.shape[:-1] + self.reshape_mask.shape, dtype=float)
+        _X[...,self.reshape_mask] = X
+        return _X
+
+    def reshape_index(self, i:tuple):
+        if len(i) > self.reshaped_dimensions:
+            return (i[:-self.reshaped_dimensions], self.reshape_index(i[-self.reshaped_dimensions:]))
+        new_i = self.index_map[i]
+        if new_i < 0:
+            raise IndexError(f'index {i} is masked out: no representation in the reshaped array')
+        return new_i
+
+    def inv_reshape_index(self, i:tuple):
+        try:
+            if len(i) > 1:
+                return tuple(i[:-1]) + self.inv_reshape_index(i[-1])
+            i = i[0]
+        except (AttributeError, TypeError): # i was an int
+            pass
+        return np.unravel_index(self.inv_index_map_flat[i], self.reshape_mask.shape)
+
+    @property
+    def index_map(self):
+        if self._index_map is None:
+            self.compute_index_map()  
+        return self._index_map
+
+    def compute_index_map(self):
+        self._index_map = np.cumsum(self.reshape_mask.reshape(-1)).reshape(self.reshape_mask.shape) - 1
+        self._index_map[~self.reshape_mask] = -1
+
+    @property
+    def inv_index_map_flat(self):
+        if self._inv_index_map_flat is None:
+            self.compute_inv_index_map_flat()
+        return self._inv_index_map_flat
+
+    def compute_inv_index_map_flat(self):
+        self._inv_index_map_flat = np.array([i for i,v in enumerate(self.index_map.reshape(-1)) if v != -1])
+        assert self._inv_index_map_flat.shape == (np.sum(self.reshape_mask),)
+
 ########## ARGUMENT PARSING ####################
 
 def run_smart(func, default_kwargs, **kwargs): # this is not as powerful as it looks like
