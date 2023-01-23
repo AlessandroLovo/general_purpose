@@ -5,7 +5,6 @@ import pandas as pd
 from tqdm.notebook import tqdm
 import uncertainties as unc
 from scipy import stats
-from lmfit.models import GaussianModel
 
 import logging
 import sys
@@ -333,6 +332,10 @@ def side_hist_plot(xdata, ydata, bins=30, external_axes=None, fit=True, **kwargs
     
     fit_params = None
     if fit:
+        try:
+            from lmfit.models import GaussianModel
+        except ImportError as e:
+            raise ImportError('You need lmfit package to do this gaussian fit') from e
         # gaussian fit
         mod1 = GaussianModel(prefix='g1_')
         pars1 = mod1.guess(f1, x=x1)
