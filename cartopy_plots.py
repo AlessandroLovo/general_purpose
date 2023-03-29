@@ -451,7 +451,7 @@ def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latit
     if colorbar == 'shared':
         if norm is None:
             if mx is None:
-                mx = max(-np.min(f), np.max(f)) or 1
+                mx = np.nanmax(np.abs(f)) or 1
             norm = matplotlib.colors.TwoSlopeNorm(vcenter=0., vmin=-mx, vmax=mx)
         else:
             logger.warning('Using provided norm')
@@ -474,7 +474,7 @@ def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latit
         if _norm is None and colorbar == 'individual':
             _mx = mx[i]
             if _mx is None:
-                _mx = max(-np.min(_f), np.max(_f)) or 1
+                _mx = np.nanmax(np.abs(_f)) or 1
             _norm = matplotlib.colors.TwoSlopeNorm(vcenter=0., vmin=-_mx, vmax=_mx)
         
         if one_fig_layout:
@@ -587,7 +587,7 @@ def multiple_field_plot2(lon, lat, f, projections=ccrs.Orthographic(central_lati
     norm = None
     if colorbar == 'shared':
         if levs is None:
-            mx = max(-np.min(f), np.max(f)) or 1
+            mx = np.nanmax(np.abs(f)) or 1
             norm = matplotlib.colors.TwoSlopeNorm(vcenter=0., vmin=-mx, vmax=mx)
         else:
             norm = matplotlib.colors.TwoSlopeNorm(vcenter=np.mean(levs), vmin=levs[0], vmax=levs[-1])
@@ -596,7 +596,7 @@ def multiple_field_plot2(lon, lat, f, projections=ccrs.Orthographic(central_lati
         _f = f[...,i]
         if colorbar == 'individual':
             if levs is None:
-                mx = max(-np.min(_f), np.max(_f)) or 1
+                mx = np.nanmax(np.abs(_f)) or 1
                 norm = matplotlib.colors.TwoSlopeNorm(vcenter=0., vmin=-mx, vmax=mx)
             else:
                 norm = matplotlib.colors.TwoSlopeNorm(vcenter=np.mean(levs), vmin=levs[0], vmax=levs[-1])
