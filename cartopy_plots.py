@@ -399,7 +399,13 @@ def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latit
     fig_num : int, optional
         figure number of the first field, by default None
     one_fig_layout : int or tuple, optional
-        TODO
+        Layout to put all the fields in the same figure.
+        If int:
+            a 3 digit number: <n_rows><n_cols><start>. As an example 130 means 1 row 3 columns
+            if <start> is non 0, the first <start> subplots will be empty
+        If tuple:
+            (<n_rows>, <n_cols>)
+            Use this if you want to have more than 9 plots in the same figure
     colorbar : 'individual', 'shared', 'disabled', optional
         How to plot the colorbar:
             'disabled': every field has its own colorbar, not centerd around 0
