@@ -398,6 +398,8 @@ def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latit
         figure size, by default (9,6)
     fig_num : int, optional
         figure number of the first field, by default None
+    one_fig_layout : int or tuple, optional
+        TODO
     colorbar : 'individual', 'shared', 'disabled', optional
         How to plot the colorbar:
             'disabled': every field has its own colorbar, not centerd around 0
@@ -408,6 +410,8 @@ def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latit
         maximum color value, by default None, which means it is computed automatically.
     titles : str or list[str], optional
         titles for each field, by default None
+    apply_tight_layout : bool, optional
+        Whether to apply tight layout to the figure. Default True
 
     **kwargs:
         passed to geo_plotter
@@ -462,9 +466,25 @@ def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latit
         if colorbar == 'shared' and put_colorbar:
             put_colorbar = False
             common_colorbar = True
-        if np.prod([int(j) for j in str(one_fig_layout) if int(j) > 0]) < n_fields:
-            logger.warning(f'The provided layout ({one_fig_layout}) cannot accommodate all the {n_fields} plots, switching to one that can')
-            one_fig_layout = n_fields*10 + 100
+        if isinstance(one_fig_layout, int):
+            if n_fields > 9:
+                raise ValueError('Cannot put more than 9 subplots in a figure using an integer one_fig_layout. Switch to one_fig_layout=(n_rows, n_cols)')
+            if one_fig_layout < 110 or one_fig_layout > 919:
+                raise ValueError(f'Invalid {one_fig_layout = }')
+            if np.prod([int(j) for j in str(one_fig_layout)[:2]]) - int(str(one_fig_layout)[-1]) < n_fields:
+                logger.warning(f'The provided layout ({one_fig_layout}) cannot accommodate all the {n_fields} plots, switching to one that can (single row)')
+                one_fig_layout = n_fields*10 + 100
+        else:
+            try:
+                one_fig_layout = tuple(one_fig_layout)
+            except:
+                raise TypeError('one_fig_layout must be int or tuple')
+            if len(one_fig_layout) != 2:
+                raise ValueError('one_fig_layout needs to have exactly two elements: number of rows and number of columns')
+            if np.prod(one_fig_layout) < n_fields:
+                raise ValueError(f'Cannot accomodate {n_fields} subplots in a {one_fig_layout[0]} by {one_fig_layout[1]} grid!')
+            
+        
         plt.close(fig_num)
         fig = plt.figure(num=fig_num, figsize=figsize)
 
@@ -478,16 +498,18 @@ def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latit
             _norm = matplotlib.colors.TwoSlopeNorm(vcenter=0., vmin=-_mx, vmax=_mx)
         
         if one_fig_layout:
-            code = one_fig_layout + i + 1
+            if isinstance(one_fig_layout, int):
+                m = fig.add_subplot(one_fig_layout + i + 1, projection=projections[i])
+            else:
+                m = plt.subplot2grid(one_fig_layout, np.unravel_index(i, one_fig_layout), projection=projections[i])
         else:
-            code = 111
             if fig_num is not None:
                 plt.close(fig_num + i)
                 fig = plt.figure(figsize=figsize, num=fig_num + i)
             else:
                 fig = plt.figure(figsize=figsize)
-
-        m = fig.add_subplot(code, projection = projections[i])
+            m = fig.add_subplot(111, projection=projections[i])
+        
         if extents[i]:
             m.set_extent(extents[i])
 
