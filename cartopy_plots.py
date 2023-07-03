@@ -103,6 +103,8 @@ def geo_plotter(m, lon, lat, values, mode='contourf',
     -------
     im : the plotted object
     '''
+    orientation = kwargs.pop('orientation','vertical') # colorbar orientation
+
     if greenwich and mode in ['scatter', 'pcolormesh']:
         logger.warning('Ignoring greenwich kwarg')
         greenwich = False
@@ -135,7 +137,7 @@ def geo_plotter(m, lon, lat, values, mode='contourf',
     if draw_gridlines:
         m.gridlines(draw_labels=draw_labels)
     if put_colorbar:
-        plt.colorbar(im, label=colorbar_label, extend='both', **kwargs) # to be able to pass orientation='horizontal'
+        plt.colorbar(im, label=colorbar_label, extend='both', orientation=orientation)
     if title is not None:
         m.set_title(title, fontsize=20)
         
