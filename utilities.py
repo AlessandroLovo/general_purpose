@@ -20,6 +20,8 @@ import json
 import logging
 import importlib
 from scipy import interpolate
+import re
+from copy import deepcopy
 
 if __name__ == '__main__':
     logger = logging.getLogger()
@@ -560,9 +562,11 @@ def dict2str(d, indent=4, **kwargs):
 
 #### MANAGE NESTED DICTIONARIES #####
 
-def collapse_dict(d_nested, d_flat=None):
+def collapse_dict(d_nested, d_flat=None, collapsable_keys='.*_kwargs'):
     '''
     Flattens a nested dictionary `d_nested` into a flat one `d_flat`.
+    Arguments are deepcopied, so the original nested dictionary and the flat ones are disentangled
+    The keys that index a sub-dictionary that is collapsed (see parameter `collapsable_keys`) do not appear in the flattened dict
 
     Parameters
     ----------
@@ -572,6 +576,11 @@ def collapse_dict(d_nested, d_flat=None):
         flat dictionary into which to store the items of `d_nested`. If None an empty one is created.
         WARNING: If provided the variable passed as d_flat is modified inplace.
         The default is None
+    collapsable_keys : str, optional
+        regex pattern that keys needs to satisfy to let their argument be collapsed. Examples
+        '.*': all keys can be collapsed
+        '.*kwagrs': all keys ending in 'kwargs' can be collapsed
+        For more see documentation of package `re`
     
     Returns
     -------
@@ -584,26 +593,29 @@ def collapse_dict(d_nested, d_flat=None):
 
     Examples
     --------
-    >>> collapse_dict({'a': 10, 'b': {'a': 10, 'c': 4}})
+    >>> collapse_dict({'a': 10, 'b': {'a': 10, 'c': 4}}, collapsable_keys='.*')
     {'a': 10, 'c': 4}
-    >>> collapse_dict({'a': 10, 'b': {'a': 10, 'c': 4}}, d_flat={'a': 10, 'z': 7})
+    >>> collapse_dict({'a': 10, 'b': {'a': 10, 'c': 4}}, d_flat={'a': 10, 'z': 7}, collapsable_keys='.*')
     {'a': 10, 'z': 7, 'c': 4}
+    >>> collapse_dict({'a': 10, 'b': {'a': 10, 'c': 4}, 'c_kwargs': {'a': 10, 'd': 8}})
+    {'a': 10, 'b': {'a': 10, 'c': 4}, 'd': 8}
     '''
     if d_flat is None:
         d_flat = {}
 
     for k,v in d_nested.items():
-        if isinstance(v, dict):
-            d_flat = collapse_dict(v,d_flat)
+        if isinstance(v, dict) and re.fullmatch(collapsable_keys, k):
+            d_flat = collapse_dict(v,d_flat, collapsable_keys=collapsable_keys)
         else:
             if k in d_flat and v != d_flat[k]:
                 raise ValueError(f'Multiple definitions for argument {k}')
-            d_flat[k] = v
+            d_flat[k] = deepcopy(v)
     return d_flat
 
 def extract_nested(d_nested, key, if_not_found='raise'):
     '''
     Method to access items in a nested dictionary
+    The returned item is deepcopied, so modifying it won't affect the original value in the nested dictionary
 
     Parameters
     ----------
@@ -635,9 +647,10 @@ def extract_nested(d_nested, key, if_not_found='raise'):
     >>> extract_nested(d, 'q')
     20
     >>> extract_nested(d, 'v', 14)
+    14
     '''
     try: 
-        return d_nested[key]
+        return deepcopy(d_nested[key])
     except KeyError:
         for v in d_nested.values():
             if isinstance(v, dict):
@@ -651,7 +664,7 @@ def extract_nested(d_nested, key, if_not_found='raise'):
             return if_not_found
         raise KeyError(f'{key} is not a valid key')
 
-def keys_exists(d_nested, key):
+def key_exists(d_nested, key):
     '''
     Checks if `key` (str) appears in `d_nested` (nested dict) at some level of indentation.
     This is basically like extract_nested() but does not raise the KeyError as the output
@@ -663,24 +676,42 @@ def keys_exists(d_nested, key):
         return False
 
 
-def set_values_recursive(d_nested, d_flat, inplace=False):
+def set_values_recursive(d_nested:dict, d_flat:dict, inplace=False, inspectable_keys='.*_kwargs'):
     '''
     Given a nested dictionary `d_nested` replaces its values at any level of indentation according to the ones in `d_flat`.
     keys in `d_flat` that do not appear in `d_nested` are ignored.
     If `inplace`, `d_nested` is modified and returned, otherwise a copy is returned (i.e. the variable `d_nested` keeps its original value)
 
+    Parameters
+    ----------
+    d_nested : dict
+        nested dictionary
+    d_flat : dict
+        dictionary with values to set in `d_nested`
+    inplace : bool, optional
+        whether to set values inplace in `d_nested` or return a deepcopy of it, by default False
+    inspectable_keys : str(regex pattern), optional
+        Only the keys in `d_nested` that match the pattern are allowed to have their values recursively set, by default '.*_kwargs'
+
+    Returns
+    -------
+    dict
+        (copy of) `d_nested` with its new values set
+
     Examples
     --------
-    >>> d = {'a': 10, 'b': {'a': 10, 'c': 8}}
+    >>> d = {'a': 10, 'b_kwargs': {'a': 10, 'c': 8}}
     >>> set_values_recursive(d, {'a': 'hello', 'z': 42}, inplace=True)
-    {'a': 'hello', 'b': {'a': 'hello', 'c': 8}}
+    {'a': 'hello', 'b_kwargs': {'a': 'hello', 'c': 8}}
     >>> d
-    {'a': 'hello', 'b': {'a': 'hello', 'c': 8}}
+    {'a': 'hello', 'b_kwargs': {'a': 'hello', 'c': 8}}
     >>> d = {'a': 10, 'b': {'a': 10, 'c': 8}}
     >>> set_values_recursive(d, {'a': 'hello', 'z': 42}, inplace=False)
-    {'a': 'hello', 'b': {'a': 'hello', 'c': 8}}
+    {'a': 'hello', 'b': {'a': 10, 'c': 8}}
     >>> d
     {'a': 10, 'b': {'a': 10, 'c': 8}}
+    >>> set_values_recursive(d, {'a': 'hello', 'z': 42}, inplace=False, inspectable_keys='.*')
+    {'a': 'hello', 'b': {'a': 'hello', 'c': 8}}
     '''
     if len(d_flat) == 0:
         return d_nested
@@ -688,13 +719,13 @@ def set_values_recursive(d_nested, d_flat, inplace=False):
     if inplace:
         d_n = d_nested
     else:
-        d_n = d_nested.copy()
+        d_n = deepcopy(d_nested)
 
     for k,v in d_n.items():
-        if isinstance(v, dict):
-            d_n[k] = set_values_recursive(v, d_flat, inplace=inplace)
+        if isinstance(v, dict) and re.fullmatch(inspectable_keys, k):
+            d_n[k] = set_values_recursive(v, d_flat, inspectable_keys=inspectable_keys)
         elif k in d_flat:
-            d_n[k] = d_flat[k]
+            d_n[k] = deepcopy(d_flat[k])
     return d_n
 
 def compare_nested(d1, d2):
