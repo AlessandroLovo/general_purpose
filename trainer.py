@@ -8,6 +8,8 @@ import os
 from pathlib import Path
 from stat import S_IREAD, S_IROTH, S_IRGRP
 import sys
+import time
+import shutil
 
 import utilities as ut
 
@@ -108,7 +110,25 @@ def remove_args_at_default(run_args: dict, config_dict_flat: dict) -> dict:
 
 class Trainer(object):
     def __init__(self) -> None:
-        pass
+        self._allow_run = None
+
+    @property
+    def allow_run(self):
+        if self._allow_run is None: # compute allow_run
+            if os.path.exists(f'{self.root_folder}/lock.txt'): # check if there is a lock
+                self._allow_run = False
+                logger.error('Lock detected: cannot run')
+            elif os.path.exists(self.config_file): # if there is a config file we check it is compatible with self.config_dict
+                config_in_folder = ut.json2dict(self.config_file)
+                if config_in_folder == self.config_dict:
+                    self._allow_run = True
+                else:
+                    self._allow_run = False
+            else: # if there is no config file we create it
+                ut.dict2json(self.config_dict, self.config_file)
+                self._allow_run = True
+
+        return self._allow_run
 
     def schedule(self, **kwargs):
         '''
@@ -119,7 +139,7 @@ class Trainer(object):
             first_from_scratch : bool, optional
                 Whether the first run should be created from scratch or from transfer learning, by default False (i.e. by default transfer learning)
         '''
-        first_from_scratch = kwargs.pop('first_from_scratch', False)  # this argument is removed from the kwargs because it affects only the first run
+        repetitions = kwargs.pop('repetitions',1) # this argument affects only the scheduling, not the runs
         
         # detect variables over which to iterate
         iterate_over = [] # list of names of arguments that are lists and so need to be iterated over
@@ -142,7 +162,7 @@ class Trainer(object):
             elif v != self.config_dict_flat[k]: # skip parameters already at their default value
                 non_iterative_kwargs[k] = v
 
-
+        # TODO: do this step for general function names
         # rearrange the order of the arguments over which we need to iterate such that the runs are performed in the most efficient way
         # namely we want arguments for loading data to tick like hours, arguments for preparing X,Y to tick like minutes and arguments for k_fold_cross_val like seconds
         new_iterate_over = []
@@ -189,6 +209,19 @@ class Trainer(object):
 
         if len(self.scheduled_kwargs) == 0: # this is fix to avoid empty scheduled_kwargs if it happens there are no iterative kwargs
             self.scheduled_kwargs = [non_iterative_kwargs]
+
+        if repetitions > 1:
+            logger.warning(f'Due to {repetitions = } > 1, disabling run skipping')
+            self.skip_existing_run = False
+
+            new_scheduled_kwargs = []
+            for kw in self.scheduled_kwargs:
+                if kw.get('load_from', ut.extract_nested(self.default_run_kwargs, 'load_from')) == 'last':
+                    raise KeyError("repeating a run with load_from = 'last' will cause it to load from its previous iteration, please change load_from")
+                new_scheduled_kwargs += [kw]*repetitions
+            self.scheduled_kwargs = new_scheduled_kwargs
+
+        if len(self.scheduled_kwargs) == 1:
             if len(non_iterative_kwargs) == 0:
                 logger.info('Scheduling 1 run at default values')
             else:
@@ -197,17 +230,11 @@ class Trainer(object):
             logger.info(f'Scheduled the following {len(self.scheduled_kwargs)} runs:')
             for i,kw in enumerate(self.scheduled_kwargs):
                 logger.info(f'{i}: {kw}')
-
-        if first_from_scratch: 
-            self.scheduled_kwargs[0]['load_from'] = None # disable transfer learning for the first run
-            logger.warning('Forcing the first run to be loaded from scratch')
     
     def run_multiple(self):
         '''
         Performs all the scheduled runs
         '''
-        # add telegram logger
-        th = self.telegram(**self.telegram_kwargs)
         nruns = len(self.scheduled_kwargs)
         logger.log(45, f"Starting {nruns} run{'' if nruns == 1 else 's'}")
         with ut.TelegramLogger(logger, **self.telegram_kwargs):
@@ -215,3 +242,128 @@ class Trainer(object):
                 logger.log(48, f'{HOSTNAME}: Run {i+1}/{nruns}')
                 self._run(**kwargs)
             logger.log(49, f'{HOSTNAME}: \n\n\n\n\n\nALL RUNS COMPLETED\n\n')
+
+    def _run(self, **kwargs):
+        '''
+        Parses kwargs and performs a single run, kwargs are not interpreted as iterables.
+        It checks if the run has already been performed, in which case, if `self.skip_existing_run` is True, it is skipped.
+        It also deals with the runs.json file.
+        Basically it is a wrapper of the `self.run` function that performs all the extra steps besides a simply training the network.
+        '''
+
+        ###############################
+        ## prepare working directory ##
+        ###############################
+
+        # check if we can run
+
+        if not self.allow_run:
+            raise FileExistsError('You cannot run in this folder with the provided config file. Other runs have already been performed with a different config file')
+
+        if not os.path.exists(self.runs_file): # create run dictionary if not found
+            ut.dict2json({},self.runs_file)
+        
+        runs = ut.json2dict(self.runs_file) # get runs dictionary
+
+
+        # check if the run has already been performed
+        matching_runs = []
+        for r in runs.values():
+            if r['status'] == 'COMPLETED' and r['args'] == kwargs:
+                matching_runs.append(r['name'])
+
+        if matching_runs:
+            matching_runs = ', '.join(matching_runs)
+            logger.log(45, f"Run already performed in {matching_runs}")
+            if self.skip_existing_run:
+                logger.log(45, 'Skipping')
+                return None
+            else:
+                logger.log(45, "Rerunning")
+
+
+        ############################
+        ## run name and arguments ##
+        ############################
+
+        # get run number
+        run_id = str(len(runs))
+        # create run name from kwargs
+        folder = make_run_name(run_id, **kwargs)
+
+        # update the default kwargs with the ones provided
+        run_kwargs = ut.set_values_recursive(self.default_run_kwargs, kwargs)
+
+        logger.log(42, f'{folder = }\n')
+
+        #########
+        ## run ##
+        #########
+
+        # change folder name to account for running status
+        folder = f'R{folder}'
+        start_time = time.time()
+        
+        runs[run_id] = {
+            'name': folder, 
+            'args': kwargs,
+            'status': 'RUNNING',
+            'host': HOSTNAME,
+            'start_time': ut.now()
+        }
+        ut.dict2json(runs, self.runs_file) # save runs.json
+
+        # create directory for the current run
+        os.mkdir(f'{self.root_folder}/{folder}')
+
+        score, info = None, {}
+
+        # setup logging to file
+        with ut.FileLogger(logger,f'{self.root_folder}/{folder}/log.log', level=self.file_logging_level):
+            logger.info(f'{run_id = }\n\n')
+            logger.info(f'Running on machine: {HOSTNAME}\n\n')
+            logger.info('Non default parameters:\n')
+            logger.log(44, ut.dict2str(kwargs))
+            logger.info('\n\n\n')
+
+            # actual start of the run
+            try:            
+                score, info = self.run(f'{self.root_folder}/{folder}', **run_kwargs)
+                
+                runs = ut.json2dict(self.runs_file)
+                runs[run_id]['status'] = info['status'] # either COMPLETED or PRUNED
+                if info['status'] == 'PRUNED':
+                    runs[run_id]['name'] = f'P{folder[1:]}'
+                    shutil.move(f'{self.root_folder}/{folder}', f'{self.root_folder}/P{folder[1:]}')
+                elif info['status'] == 'COMPLETED': # remove the leading R
+                    runs[run_id]['name'] = f'{folder[1:]}'
+                    shutil.move(f'{self.root_folder}/{folder}', f'{self.root_folder}/{folder[1:]}')
+                
+                runs[run_id]['score'] = ast.literal_eval(str(score)) # ensure json serializability
+                runs[run_id]['scores'] = info['scores']
+                logger.log(42, 'run completed!!!\n\n')
+
+            except Exception as e: # run failed
+                runs = ut.json2dict(self.runs_file)
+                runs[run_id]['status'] = 'FAILED'
+                runs[run_id]['name'] = f'F{folder[1:]}'
+                shutil.move(f'{self.root_folder}/{folder}', f'{self.root_folder}/F{folder[1:]}')
+
+                if self.upon_failed_run == 'raise' or isinstance(e, KeyboardInterrupt):
+                    raise e
+                info['status'] = 'FAILED'
+
+            finally: # in any case we need to save the end time and save runs to json
+                if runs[run_id]['status'] == 'RUNNING': # the run has not completed but the above except block has not been executed (e.g. due to KeybordInterruptError)
+                    runs[run_id]['status'] = 'FAILED'
+                    runs[run_id]['name'] = f'F{folder[1:]}'
+                    shutil.move(f'{self.root_folder}/{folder}', f'{self.root_folder}/F{folder[1:]}')
+                runs[run_id]['end_time'] = ut.now()
+                run_time = time.time() - start_time
+                run_time_min = int(run_time/0.6)/100 # 2 decimal places of run time in minutes
+                runs[run_id]['run_time'] = ut.pretty_time(run_time)
+                runs[run_id]['run_time_min'] = run_time_min
+
+                ut.dict2json(runs,self.runs_file)
+
+        return score, info
