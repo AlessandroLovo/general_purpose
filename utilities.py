@@ -20,6 +20,8 @@ import json
 import logging
 import importlib
 from scipy import interpolate
+import re
+from copy import deepcopy
 
 if __name__ == '__main__':
     logger = logging.getLogger()
@@ -37,7 +39,7 @@ def now():
     '''
     return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-def pretty_time(t):
+def pretty_time(t:float) -> str:
     '''
     Takes a time in seconds and returns it in a string with the format <hours> h <minutes> min <seconds> s
 
@@ -428,15 +430,15 @@ class Reshaper(object):
         self.reshaped_dimensions = len(self.reshape_mask.shape)
         self.surviving_coords = np.sum(self.reshape_mask)
     
-    def reshape(self, X:np.ndarray):
+    def reshape(self, X:np.ndarray) -> np.ndarray:
         return X[...,self.reshape_mask]
 
-    def inv_reshape(self, X:np.ndarray):
+    def inv_reshape(self, X:np.ndarray) -> np.ndarray:
         _X = self.fill_value*np.ones(X.shape[:-1] + self.reshape_mask.shape, dtype=float)
         _X[...,self.reshape_mask] = X
         return _X
 
-    def reshape_index(self, i:tuple):
+    def reshape_index(self, i:tuple) -> tuple:
         if len(i) > self.reshaped_dimensions:
             return (i[:-self.reshaped_dimensions], self.reshape_index(i[-self.reshaped_dimensions:]))
         new_i = self.index_map[i]
@@ -444,7 +446,7 @@ class Reshaper(object):
             raise IndexError(f'index {i} is masked out: no representation in the reshaped array')
         return new_i
 
-    def inv_reshape_index(self, i:tuple):
+    def inv_reshape_index(self, i:tuple) -> tuple:
         try:
             if len(i) > 1:
                 return tuple(i[:-1]) + self.inv_reshape_index(i[-1])
@@ -533,7 +535,7 @@ def run_smart(func, default_kwargs, **kwargs): # this is not as powerful as it l
 
 #### JSON IO #########
 
-def json2dict(filename):
+def json2dict(filename:str|Path) -> dict:
     '''
     Reads a json file `filename` as a dictionary
 
@@ -545,14 +547,14 @@ def json2dict(filename):
         d = json.load(j)
     return d
 
-def dict2json(d, filename):
+def dict2json(d:dict, filename:str|Path) -> None:
     '''
     Saves a dictionary `d` to a json file `filename`
     '''
     with open(filename, 'w') as j:
         json.dump(d, j, indent=4)
         
-def dict2str(d, indent=4, **kwargs):
+def dict2str(d:dict, indent=4, **kwargs) -> str:
     '''
     A nice way of printing a nested dictionary
     '''
@@ -560,9 +562,11 @@ def dict2str(d, indent=4, **kwargs):
 
 #### MANAGE NESTED DICTIONARIES #####
 
-def collapse_dict(d_nested, d_flat=None):
+def collapse_dict(d_nested:dict, d_flat:dict=None, collapsable_keys='.*_kwargs') -> dict:
     '''
     Flattens a nested dictionary `d_nested` into a flat one `d_flat`.
+    Arguments are deepcopied, so the original nested dictionary and the flat ones are disentangled
+    The keys that index a sub-dictionary that is collapsed (see parameter `collapsable_keys`) do not appear in the flattened dict
 
     Parameters
     ----------
@@ -572,6 +576,11 @@ def collapse_dict(d_nested, d_flat=None):
         flat dictionary into which to store the items of `d_nested`. If None an empty one is created.
         WARNING: If provided the variable passed as d_flat is modified inplace.
         The default is None
+    collapsable_keys : str, optional
+        regex pattern that keys needs to satisfy to let their argument be collapsed. Examples
+        '.*': all keys can be collapsed
+        '.*kwagrs': all keys ending in 'kwargs' can be collapsed
+        For more see documentation of package `re`
     
     Returns
     -------
@@ -584,26 +593,29 @@ def collapse_dict(d_nested, d_flat=None):
 
     Examples
     --------
-    >>> collapse_dict({'a': 10, 'b': {'a': 10, 'c': 4}})
+    >>> collapse_dict({'a': 10, 'b': {'a': 10, 'c': 4}}, collapsable_keys='.*')
     {'a': 10, 'c': 4}
-    >>> collapse_dict({'a': 10, 'b': {'a': 10, 'c': 4}}, d_flat={'a': 10, 'z': 7})
+    >>> collapse_dict({'a': 10, 'b': {'a': 10, 'c': 4}}, d_flat={'a': 10, 'z': 7}, collapsable_keys='.*')
     {'a': 10, 'z': 7, 'c': 4}
+    >>> collapse_dict({'a': 10, 'b': {'a': 10, 'c': 4}, 'c_kwargs': {'a': 10, 'd': 8}})
+    {'a': 10, 'b': {'a': 10, 'c': 4}, 'd': 8}
     '''
     if d_flat is None:
         d_flat = {}
 
     for k,v in d_nested.items():
-        if isinstance(v, dict):
-            d_flat = collapse_dict(v,d_flat)
+        if isinstance(v, dict) and re.fullmatch(collapsable_keys, k):
+            d_flat = collapse_dict(v,d_flat, collapsable_keys=collapsable_keys)
         else:
             if k in d_flat and v != d_flat[k]:
                 raise ValueError(f'Multiple definitions for argument {k}')
-            d_flat[k] = v
+            d_flat[k] = deepcopy(v)
     return d_flat
 
-def extract_nested(d_nested, key, if_not_found='raise'):
+def extract_nested(d_nested:dict, key:str, if_not_found='raise'):
     '''
     Method to access items in a nested dictionary
+    The returned item is deepcopied, so modifying it won't affect the original value in the nested dictionary
 
     Parameters
     ----------
@@ -635,9 +647,10 @@ def extract_nested(d_nested, key, if_not_found='raise'):
     >>> extract_nested(d, 'q')
     20
     >>> extract_nested(d, 'v', 14)
+    14
     '''
     try: 
-        return d_nested[key]
+        return deepcopy(d_nested[key])
     except KeyError:
         for v in d_nested.values():
             if isinstance(v, dict):
@@ -651,7 +664,7 @@ def extract_nested(d_nested, key, if_not_found='raise'):
             return if_not_found
         raise KeyError(f'{key} is not a valid key')
 
-def keys_exists(d_nested, key):
+def key_exists(d_nested:dict, key:str) -> bool:
     '''
     Checks if `key` (str) appears in `d_nested` (nested dict) at some level of indentation.
     This is basically like extract_nested() but does not raise the KeyError as the output
@@ -663,24 +676,42 @@ def keys_exists(d_nested, key):
         return False
 
 
-def set_values_recursive(d_nested, d_flat, inplace=False):
+def set_values_recursive(d_nested:dict, d_flat:dict, inplace=False, inspectable_keys='.*_kwargs') -> dict:
     '''
     Given a nested dictionary `d_nested` replaces its values at any level of indentation according to the ones in `d_flat`.
     keys in `d_flat` that do not appear in `d_nested` are ignored.
     If `inplace`, `d_nested` is modified and returned, otherwise a copy is returned (i.e. the variable `d_nested` keeps its original value)
 
+    Parameters
+    ----------
+    d_nested : dict
+        nested dictionary
+    d_flat : dict
+        dictionary with values to set in `d_nested`
+    inplace : bool, optional
+        whether to set values inplace in `d_nested` or return a deepcopy of it, by default False
+    inspectable_keys : str(regex pattern), optional
+        Only the keys in `d_nested` that match the pattern are allowed to have their values recursively set, by default '.*_kwargs'
+
+    Returns
+    -------
+    dict
+        (copy of) `d_nested` with its new values set
+
     Examples
     --------
-    >>> d = {'a': 10, 'b': {'a': 10, 'c': 8}}
+    >>> d = {'a': 10, 'b_kwargs': {'a': 10, 'c': 8}}
     >>> set_values_recursive(d, {'a': 'hello', 'z': 42}, inplace=True)
-    {'a': 'hello', 'b': {'a': 'hello', 'c': 8}}
+    {'a': 'hello', 'b_kwargs': {'a': 'hello', 'c': 8}}
     >>> d
-    {'a': 'hello', 'b': {'a': 'hello', 'c': 8}}
+    {'a': 'hello', 'b_kwargs': {'a': 'hello', 'c': 8}}
     >>> d = {'a': 10, 'b': {'a': 10, 'c': 8}}
     >>> set_values_recursive(d, {'a': 'hello', 'z': 42}, inplace=False)
-    {'a': 'hello', 'b': {'a': 'hello', 'c': 8}}
+    {'a': 'hello', 'b': {'a': 10, 'c': 8}}
     >>> d
     {'a': 10, 'b': {'a': 10, 'c': 8}}
+    >>> set_values_recursive(d, {'a': 'hello', 'z': 42}, inplace=False, inspectable_keys='.*')
+    {'a': 'hello', 'b': {'a': 'hello', 'c': 8}}
     '''
     if len(d_flat) == 0:
         return d_nested
@@ -688,16 +719,16 @@ def set_values_recursive(d_nested, d_flat, inplace=False):
     if inplace:
         d_n = d_nested
     else:
-        d_n = d_nested.copy()
+        d_n = deepcopy(d_nested)
 
     for k,v in d_n.items():
-        if isinstance(v, dict):
-            d_n[k] = set_values_recursive(v, d_flat, inplace=inplace)
+        if isinstance(v, dict) and re.fullmatch(inspectable_keys, k):
+            d_n[k] = set_values_recursive(v, d_flat, inspectable_keys=inspectable_keys)
         elif k in d_flat:
-            d_n[k] = d_flat[k]
+            d_n[k] = deepcopy(d_flat[k])
     return d_n
 
-def compare_nested(d1, d2):
+def compare_nested(d1:dict, d2:dict) -> dict:
     '''
     Compares two nested dictionary.
     An item is considered 'added' if it appears in the new version (`d1`) and not in the old one (`d2`) and so on
@@ -725,23 +756,23 @@ def compare_nested(d1, d2):
 
     for k,v in d1.items():
         if k not in d2:
-            diff[k] = {'added': v}
+            diff[k] = {'added': deepcopy(v)}
         elif v != d2[k]:
             if isinstance(v, dict) and isinstance(d2[k], dict):
                 diff[k] = compare_nested(v, d2[k])
             else:
-                diff[k] = {'old': d2[k], 'new': v}
+                diff[k] = {'old': deepcopy(d2[k]), 'new': deepcopy(v)}
 
     for k,v in d2.items():
         if k not in d1:
-            diff[k] = {'removed': v}
+            diff[k] = {'removed': deepcopy(v)}
 
     return diff
 
 
 ### run arguments from folder name ###
 
-def get_run_arguments(run_folder):
+def get_run_arguments(run_folder:str) -> dict:
     '''
     Retrieves the values of the parameters of a run
 
@@ -776,6 +807,123 @@ def get_run_arguments(run_folder):
     run_config_dict = set_values_recursive(config_dict, run['args'])
 
     return run_config_dict
+
+### FLEXIBLE file handling ###
+
+def make_safe(path:str) -> str:
+    '''
+    Replaces square brackets with round ones and removes spaces and ' characters
+
+    Parameters
+    ----------
+    path : str
+        path to be modified
+
+    Returns
+    -------
+    str
+        modified path
+
+    Examples
+    --------
+    >>> make_safe("tau 5")
+    'tau5'
+    >>> make_safe("label_field__'t2m'--tau__[0, 1, 2]")
+    'label_field__t2m--tau__(0,1,2)'
+    '''
+    path = path.replace(' ', '')
+    path = path.replace('[', '(')
+    path = path.replace(']', ')')
+    path = path.replace("'", '')
+
+    path_to = None
+    if '/' in path:
+        path_to, path = path.rsplit('/', 1)
+    
+    if len(path) > MAX_FILENAME_LENGTH:
+        clipped_path = path[:MAX_FILENAME_LENGTH - 3] + '...'
+        logger.warning(f'Too long filename\n\t{path}\nClipping to\n\t{clipped_path}')
+        path = clipped_path
+    if path_to is not None:
+        path = f'{path_to}/{path}'
+    
+    return path
+
+def first_valid_path(paths, filenames):
+    '''
+    Generates the first existing path combining a list of paths and filenames. Basically for every path it will check all the filenames. If none exist, it will move to the next path.
+    This is useful for handling multiple local folders, for example.
+
+    Parameters
+    ----------
+    paths : list[str|Path] or str or Path
+        list of possible paths or single path
+    filenames : list[str|Path] or str or Path
+        list of possible filenames or single filename
+
+    Raises
+    ------
+    FileNotFoundError
+        If no combination exists
+
+    Returns
+    -------
+    full_path : Path
+        first existing path
+    '''
+    if isinstance(paths, str) or isinstance(paths, Path):
+        paths = [paths]
+
+    if isinstance(filenames, str) or isinstance(filenames, Path):
+        filenames = [filenames]
+
+    found = False
+    for f in filenames:
+        for p in paths:
+            full_path = Path(p) / Path(f)
+            logger.debug(f'Checking {full_path}')
+            if full_path.exists():
+                logger.info(f'First valid path found in {full_path}')
+                found = True
+                break
+        if found:
+            break
+    if not found:
+        raise FileNotFoundError(f'Could not find a valid combination of {paths} and {filenames}')
+
+    return full_path
+
+### IMPORT MODULE FROM A FILE ###
+
+def module_from_file(module_name, file_path): 
+    '''
+    The code that imports the file which originated the training with all the instructions
+    
+    Parameters
+    ----------
+    module_name : str
+        The name we give to the imported module
+    file_path : str
+        The path to the python file containing the module
+
+    Returns
+    -------
+    module
+
+    Examples
+    --------
+    foo = module_from_file("foo", 'models/Funs.py')
+    
+    Potential Problems
+    --------
+        When used with files generated by Learn2_new.py we get an error:
+            this_module = sys.modules[__name__]
+            KeyError: ‘foo’
+    '''
+    spec = importlib.util.spec_from_file_location(module_name, file_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 #### PERMUTATIONS ####
 
@@ -835,91 +983,103 @@ def compose_permutations(permutations):
         p = _p[p]
     return p
 
-def zipped_meshgrid(*xi):
+### MORE SCIENTIFIC ORIENTED STUFF ###
+
+## significance ##
+
+def average_with_significance(x:np.ndarray, axis=0, significance_level=0):
     '''
-    Creates a zipped meshgrid of a series of iterables. If some of the inputs are multidimensional, they are broadcasted only along the first axis.
-    See examples
+    Computes the average and the significance of an array along a specific axis.
 
-    Returns
-    -------
-    list[tuple]
-        zipped meshgrid: contains `np.prod([len(x) for x in xi])` tuples of `len(xi)`
-
-    Examples
-    --------
-    >>> zipped_meshgrid([1,2], [10,11,12])
-    [(1, 10), (1, 11), (1, 12), (2, 10), (2, 11), (2, 12)]
-    
-    >>> zipped_meshgrid([1,2], ['a','b'])
-    [(1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')]
-
-    >>> zipped_meshgrid([[1,2], [3,4]], ['a','b'])
-    [([1, 2], 'a'), ([1, 2], 'b'), ([3, 4], 'a'), ([3, 4], 'b')]
-
-    >>> zipped_meshgrid(np.array([[1,2], [3,4]]), ['a','b'])
-    [(array([1, 2]), 'a'), (array([1, 2]), 'b'), (array([3, 4]), 'a'), (array([3, 4]), 'b')]
-    '''
-    l = [range(len(x)) for x in xi]
-
-    mesh_i = list(zip(*[m.flatten() for m in np.meshgrid(*l, indexing='ij')]))
-
-    output = [tuple([xi[i][j] for i,j in enumerate(m_i)]) for m_i in mesh_i]
-
-    return output
-
-class Buffer():
-    '''
-    A simple class for storing a string.
-    '''
-    def __init__(self):
-        self.msg = ''
-    def append(self, x):
-        x = str(x)
-        self.msg += x
-
-def make_safe(path):
-    '''
-    Replaces square brackets with round ones and removes spaces and ' characters
+    significance is defined as mean/std
 
     Parameters
     ----------
-    path : str
-        path to be modified
+    x : np.ndarray
+        
+    axis : int, optional
+        axis over which to perform the operation, by default 0
+    significance_level : float, optional
+        level of significance that discriminates between significant and non significant data, by default 0
 
     Returns
     -------
-    str
-        modified path
-
-    Examples
-    --------
-    >>> make_safe("tau 5")
-    'tau5'
-    >>> make_safe("label_field__'t2m'--tau__[0, 1, 2]")
-    'label_field__t2m--tau__(0,1,2)'
+    x_mean : np.ndarray
+        mean
+    significance : np.ndarray
+        significance
+    significance_mask : np.ndarray
+        `|significance| > significance_level`
     '''
-    path = path.replace(' ', '')
-    path = path.replace('[', '(')
-    path = path.replace(']', ')')
-    path = path.replace("'", '')
+    logger.info(f'Performing mean over {x.shape[axis]} samples.')
+    x_mean = x.mean(axis=axis)
+    x_std = x.std(axis=axis)
+    significance_mask = np.abs(x_mean) > significance_level*x_std
+    significance = x_mean/x_std
 
-    path_to = None
-    if '/' in path:
-        path_to, path = path.rsplit('/', 1)
+    return x_mean, significance, significance_mask
+
+def significative_data(data, t_values=None, t=None, both=False, default_value=0):
+    '''
+    Filters `data` depending whether `t_values` exceeds a threshold `t`
+
+    Parameters
+    ----------
+    data : np.ndarray
+        data
+    t_values : np.ndarray, optional
+        significance values, by default None
+    t : float (>=0), optional
+        significance threshold, by default None
+    both : bool, optional
+        whether to return also the non significant data, by default False
+    default_value : float, optional
+        value to assign to non significant data, by default 0
+
+    Returns
+    -------
+    Out_taken : np.ndarray
+        data where the non significant values are set to `default_value`
+    Out_not_taken : np.ndarray, returned only if `both == True`
+        data where the significant values are set to `default_value` (complementary to `Out_taken`)
+    N_points_taken : int
+        number of significant datapoints
+    '''
+    if data is None:
+        if both:
+            return None, 0, 0
+        else:
+            return None, 0
     
-    if len(path) > MAX_FILENAME_LENGTH:
-        clipped_path = path[:MAX_FILENAME_LENGTH - 3] + '...'
-        logger.warning(f'Too long filename\n\t{path}\nClipping to\n\t{clipped_path}')
-        path = clipped_path
-    if path_to is not None:
-        path = f'{path_to}/{path}'
+    data = np.array(data)
     
-    return path
+    if t_values is None or t is None:
+        logger.warn('Assuming all data are significant')
+        if both:
+            return data, np.ones_like(data)*default_value, np.product(data.shape)
+        else:
+            return data, np.product(data.shape)
+        
+    t_values = np.array(t_values)
+    if data.shape != t_values.shape:
+        raise ValueError('Shape mismatch')
 
+    Out_taken = data.copy()
 
+    mask = t_values >= t
+    N_points_taken = np.sum(mask)
+    Out_taken[np.logical_not(mask)] = default_value
+    
+    if both:
+        Out_not_taken = data.copy()
+        Out_not_taken[mask] = default_value
+        return Out_taken, Out_not_taken, N_points_taken
+    else:
+        return Out_taken, N_points_taken
+    
 ### stuff useful for computing metrics ####
 
-def entropy(p, q=None, epsilon=1e-15):
+def entropy(p, q=None, epsilon=1e-15) -> np.ndarray:
     '''
     Returns `-p*log(max(q, epsilon)) - (1-p)*log(max(1-q, epsilon))`
 
@@ -971,85 +1131,50 @@ def unbias_probabilities(Y_pred_prob, u=1):
 
     return Y_unb
 
-### IMPORT MODULE FROM A FILE ###
 
-def module_from_file(module_name, file_path): 
+### OTHER GENERAL PURPOSE STUFF ###
+
+class Buffer():
     '''
-    The code that imports the file which originated the training with all the instructions
-    
-    Parameters
-    ----------
-    module_name : str
-        The name we give to the imported module
-    file_path : str
-        The path to the python file containing the module
+    A simple class for storing a string.
+    '''
+    def __init__(self):
+        self.msg = ''
+    def append(self, x):
+        x = str(x)
+        self.msg += x
+
+def zipped_meshgrid(*xi):
+    '''
+    Creates a zipped meshgrid of a series of iterables. If some of the inputs are multidimensional, they are broadcasted only along the first axis.
+    See examples
 
     Returns
     -------
-    module
+    list[tuple]
+        zipped meshgrid: contains `np.prod([len(x) for x in xi])` tuples of `len(xi)`
 
     Examples
     --------
-    foo = module_from_file("foo", 'models/Funs.py')
+    >>> zipped_meshgrid([1,2], [10,11,12])
+    [(1, 10), (1, 11), (1, 12), (2, 10), (2, 11), (2, 12)]
     
-    Potential Problems
-    --------
-        When used with files generated by Learn2_new.py we get an error:
-            this_module = sys.modules[__name__]
-            KeyError: ‘foo’
+    >>> zipped_meshgrid([1,2], ['a','b'])
+    [(1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')]
+
+    >>> zipped_meshgrid([[1,2], [3,4]], ['a','b'])
+    [([1, 2], 'a'), ([1, 2], 'b'), ([3, 4], 'a'), ([3, 4], 'b')]
+
+    >>> zipped_meshgrid(np.array([[1,2], [3,4]]), ['a','b'])
+    [(array([1, 2]), 'a'), (array([1, 2]), 'b'), (array([3, 4]), 'a'), (array([3, 4]), 'b')]
     '''
-    spec = importlib.util.spec_from_file_location(module_name, file_path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    l = [range(len(x)) for x in xi]
 
-### FLEXIBLE file handling ###
+    mesh_i = list(zip(*[m.flatten() for m in np.meshgrid(*l, indexing='ij')]))
 
-def first_valid_path(paths, filenames):
-    '''
-    Generates the first existing path combining a list of paths and filenames. Basically for every path it will check all the filenames. If none exist, it will move to the next path.
-    This is useful for handling multiple local folders, for example.
+    output = [tuple([xi[i][j] for i,j in enumerate(m_i)]) for m_i in mesh_i]
 
-    Parameters
-    ----------
-    paths : list[str|Path] or str or Path
-        list of possible paths or single path
-    filenames : list[str|Path] or str or Path
-        list of possible filenames or single filename
-
-    Raises
-    ------
-    FileNotFoundError
-        If no combination exists
-
-    Returns
-    -------
-    full_path : Path
-        first existing path
-    '''
-    if isinstance(paths, str) or isinstance(paths, Path):
-        paths = [paths]
-
-    if isinstance(filenames, str) or isinstance(filenames, Path):
-        filenames = [filenames]
-
-    found = False
-    for f in filenames:
-        for p in paths:
-            full_path = Path(p) / Path(f)
-            logger.debug(f'Checking {full_path}')
-            if full_path.exists():
-                logger.info(f'First valid path found in {full_path}')
-                found = True
-                break
-        if found:
-            break
-    if not found:
-        raise FileNotFoundError(f'Could not find a valid combination of {paths} and {filenames}')
-
-    return full_path
-
-### OTHER GENERAL PURPOSE STUFF ###
+    return output
 
 class DelayedInitWrapper(object):
     '''
@@ -1172,94 +1297,3 @@ def adaptive_interpolation(func, x_range, max_xstep=0.1, max_ystep_rel=0.1, verb
             
     yfunc = interpolate.interp1d(xs, ys, **kwargs)
     return np.array(xs), np.array(ys), yfunc
-
-
-def average_with_significance(x:np.ndarray, axis=0, significance_level=0):
-    '''
-    Computes the average and the significance of an array along a specific axis.
-
-    significance is defined as mean/std
-
-    Parameters
-    ----------
-    x : np.ndarray
-        
-    axis : int, optional
-        axis over which to perform the operation, by default 0
-    significance_level : float, optional
-        level of significance that discriminates between significant and non significant data, by default 0
-
-    Returns
-    -------
-    x_mean : np.ndarray
-        mean
-    significance : np.ndarray
-        significance
-    significance_mask : np.ndarray
-        `|significance| > significance_level`
-    '''
-    logger.info(f'Performing mean over {x.shape[axis]} samples.')
-    x_mean = x.mean(axis=axis)
-    x_std = x.std(axis=axis)
-    significance_mask = np.abs(x_mean) > significance_level*x_std
-    significance = x_mean/x_std
-
-    return x_mean, significance, significance_mask
-
-def significative_data(data, t_values=None, t=None, both=False, default_value=0):
-    '''
-    Filters `data` depending whether `t_values` exceeds a threshold `t`
-
-    Parameters
-    ----------
-    data : np.ndarray
-        data
-    t_values : np.ndarray, optional
-        significance values, by default None
-    t : float (>=0), optional
-        significance threshold, by default None
-    both : bool, optional
-        whether to return also the non significant data, by default False
-    default_value : float, optional
-        value to assign to non significant data, by default 0
-
-    Returns
-    -------
-    Out_taken : np.ndarray
-        data where the non significant values are set to `default_value`
-    Out_not_taken : np.ndarray, returned only if `both == True`
-        data where the significant values are set to `default_value` (complementary to `Out_taken`)
-    N_points_taken : int
-        number of significant datapoints
-    '''
-    if data is None:
-        if both:
-            return None, 0, 0
-        else:
-            return None, 0
-    
-    data = np.array(data)
-    
-    if t_values is None or t is None:
-        logger.warn('Assuming all data are significant')
-        if both:
-            return data, np.ones_like(data)*default_value, np.product(data.shape)
-        else:
-            return data, np.product(data.shape)
-        
-    t_values = np.array(t_values)
-    if data.shape != t_values.shape:
-        raise ValueError('Shape mismatch')
-
-    Out_taken = data.copy()
-
-    mask = t_values >= t
-    N_points_taken = np.sum(mask)
-    Out_taken[np.logical_not(mask)] = default_value
-    
-    if both:
-        Out_not_taken = data.copy()
-        Out_not_taken[mask] = default_value
-        return Out_taken, Out_not_taken, N_points_taken
-    else:
-        return Out_taken, N_points_taken
