@@ -10,6 +10,7 @@ from stat import S_IREAD, S_IROTH, S_IRGRP
 import sys
 import time
 import shutil
+import traceback
 
 import utilities as ut
 
@@ -243,12 +244,19 @@ class Trainer(object):
                 self._run(**kwargs)
             logger.log(49, f'{HOSTNAME}: \n\n\n\n\n\nALL RUNS COMPLETED\n\n')
 
-    def _run(self, **kwargs):
+    def _run(self, **kwargs) -> tuple:
         '''
         Parses kwargs and performs a single run, kwargs are not interpreted as iterables.
         It checks if the run has already been performed, in which case, if `self.skip_existing_run` is True, it is skipped.
         It also deals with the runs.json file.
         Basically it is a wrapper of the `self.run` function that performs all the extra steps besides a simply training the network.
+
+        Returns
+        -------
+        score : float
+            the score of the run
+        info : dict
+            dictionary with informations about the run
         '''
 
         ###############################
@@ -340,10 +348,23 @@ class Trainer(object):
                     shutil.move(f'{self.root_folder}/{folder}', f'{self.root_folder}/{folder[1:]}')
                 
                 runs[run_id]['score'] = ast.literal_eval(str(score)) # ensure json serializability
-                runs[run_id]['scores'] = info['scores']
+
+                for k,v in info.items():
+                    if k == 'status':
+                        continue
+                    runs[run_id][k] = ast.literal_eval(v)
+
                 logger.log(42, 'run completed!!!\n\n')
 
+                # upon completion of the first successful run we make the config file read-only
+                if os.access(self.config_file, os.W_OK): # the file is writeable
+                    os.chmod(self.config_file, S_IREAD|S_IRGRP|S_IROTH) # we make it readable for all users
+
             except Exception as e: # run failed
+                logger.critical(f'Run on {folder = } failed due to {repr(e)}')
+                tb = traceback.format_exc() # log the traceback to the log file
+                logger.error(tb)
+
                 runs = ut.json2dict(self.runs_file)
                 runs[run_id]['status'] = 'FAILED'
                 runs[run_id]['name'] = f'F{folder[1:]}'
@@ -365,5 +386,13 @@ class Trainer(object):
                 runs[run_id]['run_time_min'] = run_time_min
 
                 ut.dict2json(runs,self.runs_file)
+
+        return score, info
+    
+
+    def run(self, folder:str) -> tuple:
+        score, info = None, {}
+
+        info['status'] = 'COMPLETED'
 
         return score, info
