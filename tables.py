@@ -188,7 +188,7 @@ def tex_table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, col
             rgb = ''
             if np.isnan(v):
                 v = '-'
-                rgb = '0,0,0' # make the cell white
+                rgb = '1,1,1' # make the cell white
             else:
                 v = f'{v:.{text_digits}f}'
                 rgb = colours[r,c,:3] # get rid of the alpha parameter
