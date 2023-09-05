@@ -103,8 +103,8 @@ def tex_table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, col
     Generates a LaTeX table coloring the cells based on their values.
 
     Add to your preamble the following:
-    \usepackage{graphicx,multirow}
-    \usepackage[table]{xcolor}
+    \\usepackage{graphicx,multirow}
+    \\usepackage[table]{xcolor}
     
     Args:
         vals (ndarray): A 2D array of values for the table. It should have shape (len(row_labels), len(col_labels)).
