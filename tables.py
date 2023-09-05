@@ -72,9 +72,9 @@ def table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, cmap=pl
     
     if norm is None:
         if vmin is None:
-            vmin = np.min(vals)
+            vmin = np.nanmin(vals)
         if vmax is None:
-            vmax = np.max(vals)
+            vmax = np.nanmax(vals)
         norm = plt.Normalize(vmin, vmax)
     
     colours = cmap(norm(vals))
@@ -94,7 +94,7 @@ def table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, cmap=pl
     
     return fig
 
-def tex_table(vals, col_labels, row_labels, norm=None, vmax=None, cmap=plt.cm.hot, text_digits=2, rgb_digits=8, xlabel=None, ylabel=None, title=None, side_xlabel=False, close_left=True, close_top=True):
+def tex_table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, cmap=plt.cm.hot, text_digits=2, rgb_digits=8, xlabel=None, ylabel=None, title=None, side_xlabel=False, close_left=True, close_top=True):
     """
     Generates a LaTeX table coloring the cells based on their values.
     
@@ -103,6 +103,7 @@ def tex_table(vals, col_labels, row_labels, norm=None, vmax=None, cmap=plt.cm.ho
         col_labels (list): A list of column labels.
         row_labels (list): A list of row labels.
         norm (Normalize, optional): A normalization object to normalize the values. Defaults to None.
+        vmin (float, optional): The minimum value for the normalization. Defaults to None.
         vmax (float, optional): The maximum value for the normalization. Defaults to None.
         cmap (Colormap, optional): The colormap to use for coloring the table cells. Defaults to plt.cm.hot.
         text_digits (int, optional): The number of digits to display for the values in the table cells. Defaults to 2.
@@ -121,9 +122,9 @@ def tex_table(vals, col_labels, row_labels, norm=None, vmax=None, cmap=plt.cm.ho
 
     if norm is None:
         if vmin is None:
-            vmin = np.min(vals)
+            vmin = np.nanmin(vals)
         if vmax is None:
-            vmax = np.max(vals)
+            vmax = np.nanmax(vals)
         norm = plt.Normalize(vmin, vmax)
         
     colours = cmap(norm(vals))
