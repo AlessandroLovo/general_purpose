@@ -21,7 +21,7 @@ def frmt(x:np.ndarray, precision=2):
     _x = np.array([f'{v:.{precision}f}' for v in _x])
     return _x.reshape(x.shape)
 
-def table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, cmap=plt.cm.hot, text_digits=2,
+def table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, color_range=None, cmap=plt.cm.hot, text_digits=2,
           num=None, figsize=(7,3), xlabel=None, ylabel=None, title=None, label_fontsize=12, title_fontsize=14):
     """
     Generate a table plot with cells colored according to their value
@@ -70,13 +70,17 @@ def table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, cmap=pl
     fig = plt.figure(num=num, figsize=figsize)
     ax = fig.add_subplot(111, frameon=False, xticks=[], yticks=[])
     
+    # properly define norm
     if norm is None:
         if vmin is None:
             vmin = np.nanmin(vals)
         if vmax is None:
             vmax = np.nanmax(vals)
+        if color_range is not None:
+            assert len(color_range) == 2
+            assert color_range[0] < color_range[1]
+            vmin, vmax = (np.array([0,1]) - color_range[0]) * (vmax - vmin) / (color_range[1] - color_range[0]) + vmin
         norm = plt.Normalize(vmin, vmax)
-    
     colours = cmap(norm(vals))
 
     the_table=plt.table(cellText=frmt(vals,text_digits), rowLabels=row_labels, colLabels=col_labels, 
@@ -94,9 +98,13 @@ def table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, cmap=pl
     
     return fig
 
-def tex_table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, cmap=plt.cm.hot, text_digits=2, rgb_digits=8, xlabel=None, ylabel=None, title=None, side_xlabel=False, close_left=True, close_top=True):
+def tex_table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, color_range=None, cmap=plt.cm.hot, text_digits=2, rgb_digits=8, xlabel=None, ylabel=None, title=None, side_xlabel=False, close_left=True, close_top=True):
     """
     Generates a LaTeX table coloring the cells based on their values.
+
+    Add to your preamble the following:
+    \usepackage{graphicx,multirow}
+    \usepackage[table]{xcolor}
     
     Args:
         vals (ndarray): A 2D array of values for the table. It should have shape (len(row_labels), len(col_labels)).
@@ -120,11 +128,16 @@ def tex_table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, cma
     """
     assert vals.shape == (len(row_labels), len(col_labels))
 
+    # properly define norm
     if norm is None:
         if vmin is None:
             vmin = np.nanmin(vals)
         if vmax is None:
             vmax = np.nanmax(vals)
+        if color_range is not None:
+            assert len(color_range) == 2
+            assert color_range[0] < color_range[1]
+            vmin, vmax = (np.array([0,1]) - color_range[0]) * (vmax - vmin) / (color_range[1] - color_range[0]) + vmin
         norm = plt.Normalize(vmin, vmax)
         
     colours = cmap(norm(vals))
