@@ -178,15 +178,22 @@ def tex_table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, col
         tbl += "\t\multirow{%d}{*}{\\rotatebox[origin=c]{90}{%s}}\n" %(len(row_labels), ylabel)
     
     # values
-    for r,rl in enumerate(row_labels):
+    for r in range(len(row_labels)):
         tbl += '\t'
         if ylabel:
             tbl += ' & '
         tbl += f'{row_labels[r]}'
         for c in range(len(col_labels)):
-            rgb = colours[r,c,:3] # get rid of the alpha parameter
-            rgb = ','.join([f'{_rgb:.{rgb_digits}f}' for _rgb in rgb])
-            tbl += " & \cellcolor[rgb]{" + rgb + '}' + f'{vals[r,c]:.{text_digits}f}'
+            v = vals[r,c]
+            rgb = ''
+            if np.isnan(v):
+                v = '-'
+                rgb = '0,0,0' # make the cell white
+            else:
+                v = f'{v:.{text_digits}f}'
+                rgb = colours[r,c,:3] # get rid of the alpha parameter
+                rgb = ','.join([f'{_rgb:.{rgb_digits}f}' for _rgb in rgb])
+            tbl += " & \cellcolor[rgb]{" + rgb + '}' + v
         tbl += ' \\\\\n'
         if r < len(row_labels) - 1:
             tbl += "\t\cline{%d-%d}\n" %(1 + bool(ylabel), len(col_labels) + 1 + bool(ylabel))
