@@ -535,7 +535,7 @@ def run_smart(func, default_kwargs, **kwargs): # this is not as powerful as it l
 
 #### JSON IO #########
 
-def json2dict(filename:str|Path) -> dict:
+def json2dict(filename:str) -> dict:
     '''
     Reads a json file `filename` as a dictionary
 
@@ -547,7 +547,7 @@ def json2dict(filename:str|Path) -> dict:
         d = json.load(j)
     return d
 
-def dict2json(d:dict, filename:str|Path) -> None:
+def dict2json(d:dict, filename:str) -> None:
     '''
     Saves a dictionary `d` to a json file `filename`
     '''
