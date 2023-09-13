@@ -24,7 +24,7 @@ def frmt(x:np.ndarray, precision=2):
     _x = np.array([f'{v:.{precision}f}' for v in _x])
     return _x.reshape(x.shape)
 
-def table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, color_range=None, cmap=plt.cm.hot, text_digits=2,
+def table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, color_range=None, cmap='hot', text_digits=2,
           num=None, figsize=(7,3), xlabel=None, ylabel=None, title=None, label_fontsize=12, title_fontsize=14):
     """
     Generate a table plot with cells colored according to their value
@@ -67,6 +67,7 @@ def table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, color_r
         The generated table plot figure.
     """
     assert vals.shape == (len(row_labels), len(col_labels))
+    cmap = plt.get_cmap(cmap)
     
     if num:
         plt.close(num)
@@ -101,7 +102,7 @@ def table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, color_r
     
     return fig
 
-def tex_table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, color_range=None, cmap=plt.cm.hot, text_digits=2, rgb_digits=8, white_text_if_lightness_below=10, xlabel=None, ylabel=None, title=None, side_xlabel=False, close_left=True, close_top=True):
+def tex_table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, color_range=None, cmap='hot', text_digits=2, rgb_digits=8, white_text_if_lightness_below=25, xlabel=None, ylabel=None, title=None, side_xlabel=False, close_left=True, close_top=True):
     """
     Generates a LaTeX table coloring the cells based on their values.
 
@@ -130,6 +131,7 @@ def tex_table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, col
         str: The LaTeX code for the generated table, as string.
     """
     assert vals.shape == (len(row_labels), len(col_labels))
+    cmap = plt.get_cmap(cmap)
 
     # properly define norm
     if norm is None:
