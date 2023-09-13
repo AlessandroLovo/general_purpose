@@ -1,5 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import colorspacious as cs
+
+rgb2lab = cs.cspace_converter("sRGB1", "CAM02-UCS")
 
 def frmt(x:np.ndarray, precision=2):
     '''
@@ -98,7 +101,7 @@ def table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, color_r
     
     return fig
 
-def tex_table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, color_range=None, cmap=plt.cm.hot, text_digits=2, rgb_digits=8, xlabel=None, ylabel=None, title=None, side_xlabel=False, close_left=True, close_top=True):
+def tex_table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, color_range=None, cmap=plt.cm.hot, text_digits=2, rgb_digits=8, white_text_if_lightness_below=10, xlabel=None, ylabel=None, title=None, side_xlabel=False, close_left=True, close_top=True):
     """
     Generates a LaTeX table coloring the cells based on their values.
 
@@ -192,6 +195,8 @@ def tex_table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, col
             else:
                 v = f'{v:.{text_digits}f}'
                 rgb = colours[r,c,:3] # get rid of the alpha parameter
+                if white_text_if_lightness_below and rgb2lab(rgb)[0] < white_text_if_lightness_below:
+                    v = '\\textcolor{white}{%s}' %v
                 rgb = ','.join([f'{_rgb:.{rgb_digits}f}' for _rgb in rgb])
             tbl += " & \cellcolor[rgb]{" + rgb + '}' + v
         tbl += ' \\\\\n'
