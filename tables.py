@@ -164,8 +164,7 @@ def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax
         if center_title:
             tbl += "\t\multicolumn{%d}{c}{%s} \\\\\n" %(ncol + 1 + bool(ylabel), title)
         else:
-            space = "\multicolumn{2}{c}{} & " if ylabel else " & "
-            tbl += "\t%s\multicolumn{%d}{c}{%s} \\\\\n" %(space, ncol, title)
+            tbl += "\t\multicolumn{%d}{c}{} & \multicolumn{%d}{c}{%s} \\\\\n" %(1 + bool(ylabel), ncol, title)
     if close_top or not xlabel:
         tbl += "\t\cline{%d-%d}\n" %(2 + bool(ylabel), ncol + 1 + bool(ylabel))
     elif title:
