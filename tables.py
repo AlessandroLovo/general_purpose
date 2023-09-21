@@ -132,12 +132,16 @@ def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax
     """
     if row_labels is not None:
         assert vals.shape[0] == len(row_labels)
+    else:
+        assert ylabel is None, 'If row_labels is None, ylabel must be None'
     if col_labels is not None:
         assert vals.shape[1] == len(col_labels)
+    else:
+        assert xlabel is None, 'If col_labels is None, xlabel must be None'
     nrow, ncol = vals.shape
     cmap = plt.get_cmap(cmap)
 
-    #TODO: add support for no x and y labels
+    extra_left_cols = bool(ylabel) + (col_labels is not None)
 
     # properly define norm
     if norm is None:
@@ -153,39 +157,42 @@ def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax
         
     colours = cmap(norm(vals))
     
-    if side_xlabel and xlabel:
+    if side_xlabel and xlabel and row_labels is not None:
         side_xlabel = xlabel
         xlabel = None
     else:
         side_xlabel = ''
     
-    tbl = "\\begin{tabular}{%s}\n" %(('|' if close_left else '') + 'c|'*(ncol + 1 + bool(ylabel)))
+    tbl = "\\begin{tabular}{%s}\n" %(('|' if close_left else '') + 'c|'*(ncol + extra_left_cols))
     if title:
         if center_title:
-            tbl += "\t\multicolumn{%d}{c}{%s} \\\\\n" %(ncol + 1 + bool(ylabel), title)
+            tbl += "\t\multicolumn{%d}{c}{%s} \\\\\n" %(ncol + extra_left_cols, title)
+        elif extra_left_cols:
+            tbl += "\t\multicolumn{%d}{c}{} & \multicolumn{%d}{c}{%s} \\\\\n" %(extra_left_cols, ncol, title)
         else:
-            tbl += "\t\multicolumn{%d}{c}{} & \multicolumn{%d}{c}{%s} \\\\\n" %(1 + bool(ylabel), ncol, title)
+            tbl += "\t\multicolumn{%d}{c}{%s} \\\\\n" %(ncol, title)
     if close_top or not xlabel:
-        tbl += "\t\cline{%d-%d}\n" %(2 + bool(ylabel), ncol + 1 + bool(ylabel))
+        tbl += "\t\cline{%d-%d}\n" %(1 + extra_left_cols, ncol + extra_left_cols)
     elif title:
         tbl += "\t\midrule\n"
     
     # xlabel top line
     if xlabel:
-        if ylabel:
-            tbl += "\t\multicolumn{2}{%s}{} & " %('c|' if close_top else 'c')
+        if extra_left_cols:
+            tbl += "\t\multicolumn{%d}{%s}{} & " %(extra_left_cols, 'c|' if close_top else 'c')
         else:
-            tbl += "\t & "
+            tbl += "\t"
         tbl += "\multicolumn{%d}{%s}{%s} \\\\\n" %(ncol, 'c|' if close_top else 'c', xlabel)
-        tbl += "\t\cline{%d-%d}\n" %(2 + bool(ylabel), ncol + 1 + bool(ylabel))
+        tbl += "\t\cline{%d-%d}\n" %(1 + extra_left_cols, ncol + extra_left_cols)
     
-    # row labels
-    if ylabel:
-        tbl += "\t\multicolumn{2}{c|}{%s} & " %(side_xlabel)
-    else:
-        tbl += "\t%s & " %(side_xlabel)
-    tbl += ' & '.join(str(cl) for cl in col_labels) + ' \\\\\n'
-    tbl += "\t\cline{%d-%d}\n" %(bool(ylabel) + 1 - bool(close_left), ncol + 1 + bool(ylabel))
+    # col labels
+    if col_labels is not None:
+        if extra_left_cols:
+            tbl += "\t\multicolumn{%d}{c|}{%s} & " %(extra_left_cols, side_xlabel)
+        else:
+            tbl += "\t"
+        tbl += ' & '.join(str(cl) for cl in col_labels) + ' \\\\\n'
+        tbl += "\t\cline{%d-%d}\n" %(bool(ylabel) + 1 - bool(close_left), ncol + 1 + bool(ylabel))
     
     # ylabel leftmost column
     if ylabel:
@@ -196,8 +203,11 @@ def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax
         tbl += '\t'
         if ylabel:
             tbl += ' & '
-        tbl += f'{row_labels[r]}'
+        if row_labels is not None:
+            tbl += f'{row_labels[r]} &'
         for c in range(ncol):
+            if c > 0:
+                tbl += ' & '
             v = vals[r,c]
             rgb = ''
             if np.isnan(v):
@@ -209,7 +219,7 @@ def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax
                 if white_text_if_lightness_below and rgb2lab(rgb)[0] < white_text_if_lightness_below:
                     v = '\\textcolor{white}{%s}' %v
                 rgb = ','.join([f'{_rgb:.{rgb_digits}f}' for _rgb in rgb])
-            tbl += " & \cellcolor[rgb]{" + rgb + '}' + v
+            tbl += "\cellcolor[rgb]{" + rgb + '}' + v
         tbl += ' \\\\\n'
         if r < nrow - 1:
             tbl += "\t\cline{%d-%d}\n" %(1 + bool(ylabel), ncol + 1 + bool(ylabel))
