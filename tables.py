@@ -141,7 +141,7 @@ def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax
     nrow, ncol = vals.shape
     cmap = plt.get_cmap(cmap)
 
-    extra_left_cols = bool(ylabel) + (col_labels is not None)
+    extra_left_cols = bool(ylabel) + (row_labels is not None)
 
     # properly define norm
     if norm is None:
@@ -182,7 +182,7 @@ def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax
             tbl += "\t\multicolumn{%d}{%s}{} & " %(extra_left_cols, 'c|' if close_top else 'c')
         else:
             tbl += "\t"
-        tbl += "\multicolumn{%d}{%s}{%s} \\\\\n" %(ncol, 'c|' if close_top else 'c', xlabel)
+        tbl += "\multicolumn{%d}{%s}{%s} \\\\\n" %(ncol, ('|' if close_left and not extra_left_cols else '') + ('c|' if close_top else 'c'), xlabel)
         tbl += "\t\cline{%d-%d}\n" %(1 + extra_left_cols, ncol + extra_left_cols)
     
     # col labels
@@ -192,7 +192,7 @@ def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax
         else:
             tbl += "\t"
         tbl += ' & '.join(str(cl) for cl in col_labels) + ' \\\\\n'
-        tbl += "\t\cline{%d-%d}\n" %(bool(ylabel) + 1 - bool(close_left), ncol + 1 + bool(ylabel))
+        tbl += "\t\cline{%d-%d}\n" %(max(1, extra_left_cols - bool(close_left)), ncol + extra_left_cols)
     
     # ylabel leftmost column
     if ylabel:
@@ -222,9 +222,9 @@ def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax
             tbl += "\cellcolor[rgb]{" + rgb + '}' + v
         tbl += ' \\\\\n'
         if r < nrow - 1:
-            tbl += "\t\cline{%d-%d}\n" %(1 + bool(ylabel), ncol + 1 + bool(ylabel))
+            tbl += "\t\cline{%d-%d}\n" %(max(1,extra_left_cols), ncol + extra_left_cols)
         else:
-            tbl += "\t\cline{%d-%d}\n" %(1 - bool(close_left) + bool(ylabel), ncol + 1 + bool(ylabel))
+            tbl += "\t\cline{%d-%d}\n" %(max(1,extra_left_cols - bool(close_left)), ncol + extra_left_cols)
     
     tbl += "\\end{tabular}"
     
