@@ -36,6 +36,18 @@ def file_no_duplicate(filename:str):
         uniq += 1
 
 def fig2img(fig:plt.Figure, dpi=300, save_name=None, keep_filename=False):
+    """
+    Convert a matplotlib figure to a PIL Image, by saving the figure and then loading it as a PIL Image.
+
+    Parameters:
+        fig (plt.Figure): The matplotlib figure to convert.
+        dpi (int, optional): The resolution in dots per inch. Defaults to 300.
+        save_name (str, optional): The name of the file to save the figure as. If not provided, a temporary file name will be used. Defaults to None.
+        keep_filename (bool, optional): Whether to keep the saved file after converting. Defaults to False.
+
+    Returns:
+        im (Image): The converted PIL Image.
+    """
     if save_name is None:
         save_name = 'temp.png'
     save_name = file_no_duplicate(save_name)
@@ -48,6 +60,16 @@ def fig2img(fig:plt.Figure, dpi=300, save_name=None, keep_filename=False):
 rgb2lab = cs.cspace_converter("sRGB1", "CAM02-UCS")
 
 def rescale(image:Image.Image, scale_factor:float=1):
+    """
+    Rescales the given image by a specified scale factor.
+
+    Parameters:
+        image (PIL.Image.Image): The image to be rescaled.
+        scale_factor (float): The factor by which the image should be rescaled. Default is 1.
+
+    Returns:
+        PIL.Image.Image: The rescaled image.
+    """
     new_size = np.array(image.size) * scale_factor
     new_size_int = tuple([int(l) for l in new_size])
     return image.resize(new_size_int)
@@ -279,13 +301,39 @@ def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax
     return tbl
 
 
-def make_label_im(text, figsize, rotation=0, dpi=300):
+def make_label_fig(text, figsize, rotation=0):
+    """
+    Generate a figure with a labeled text.
+
+    Parameters:
+    - text (str): The text to be displayed on the figure.
+    - figsize (tuple): The size of the figure in inches (width, height).
+    - rotation (int, optional): The rotation angle of the text in degrees. Default is 0.
+
+    Returns:
+    - fig (Figure): The generated figure object.
+    """
     plt.close(0)
     fig = plt.figure(figsize=figsize, num=0)
     fig.text(0.5,0.5,text, ha='center',va='center', rotation=rotation)
-    return fig2img(fig, dpi=dpi)
+    return fig
 
 def fig_table_from_ims(ims, col_label_ims=None, row_label_ims=None, h_spacing=0, v_spacing=None):
+    """
+    Generates a figure table from a given array of images.
+
+    Args:
+        ims (ndarray): Array of Image.Image objects.
+        col_label_ims (ndarray, optional): Array of Image.Image objects for column labels. Defaults to None.
+        row_label_ims (ndarray, optional): Array of Image.Image objects for row labels. Defaults to None.
+        h_spacing (int, optional): Horizontal spacing between images. Defaults to 0.
+        v_spacing (int, optional): Vertical spacing between images. Defaults to None.
+            For both h_spacing and v_spacing, if one is None, the other is set to the same value. Numerical values are relative to the size of the images in the table.
+            For example h_spacing = 0.1, means the horizontal spacing will be one tenth of the width of the widest image in `ims`.
+
+    Returns:
+        Image: The generated figure table.
+    """
     if col_label_ims is not None:
         assert ims.shape[1] == len(col_label_ims)
         col_label_ims = np.array(col_label_ims, dtype=object)
@@ -341,7 +389,27 @@ def fig_table_from_ims(ims, col_label_ims=None, row_label_ims=None, h_spacing=0,
             
     return new_im
 
-def fig_table(plotting_function, vals, col_labels=None, row_labels=None, figsize=(7,3), dpi=300, label_thickness=1, h_spacing=0, v_spacing=None, **kwargs):
+def fig_table(plotting_function, vals:np.ndarray, col_labels=None, row_labels=None, figsize=(7,3), dpi=300, label_thickness=1, h_spacing=0, v_spacing=None, **kwargs):
+    """
+    Generate a table of figures using the given plotting function and values.
+
+    Parameters:
+        - plotting_function: The function used to generate each individual figure, according to the values in `vals`.
+            The signature of the function should be:
+                plotting_function(v, figsize, **kwargs) -> plt.Figure
+        - vals: The values used as inputs for each figure: shape (nrow, ncol)
+        - col_labels: Optional. The labels for each column in the table.
+        - row_labels: Optional. The labels for each row in the table.
+        - figsize: Optional. The size of each figure in inches.
+        - dpi: Optional. The resolution of each figure in dots per inch.
+        - label_thickness: Optional. The thickness of the column and row labels, in inches.
+        - h_spacing: Optional. The horizontal spacing between figures in the table.
+        - v_spacing: Optional. The vertical spacing between figures in the table.
+        - **kwargs: Optional. Additional keyword arguments passed to the plotting function.
+
+    Returns:
+        - fig_table: The table of figures as a single image.
+    """
     if col_labels is not None:
         assert vals.shape[1] == len(col_labels)
     if row_labels is not None:
@@ -351,11 +419,11 @@ def fig_table(plotting_function, vals, col_labels=None, row_labels=None, figsize
     for i in range(vals.shape[0]):
         for j in range(vals.shape[1]):
             fig = plotting_function(vals[i,j], figsize=figsize, **kwargs)
-            ims[i,j] = tbl.fig2img(fig, dpi=dpi)
+            ims[i,j] = fig2img(fig, dpi=dpi)
 
     if col_labels is not None:
-        col_labels = [make_label_im(text, figsize=(figsize[0], label_thickness), dpi=dpi) for text in col_labels]
+        col_labels = [fig2img(make_label_fig(text, figsize=(figsize[0], label_thickness)), dpi=dpi) for text in col_labels]
     if row_labels is not None:
-        row_labels = [make_label_im(text, figsize=(label_thickness, figsize[1]), rotation=90, dpi=dpi) for text in row_labels]
+        row_labels = [fig2img(make_label_fig(text, figsize=(label_thickness, figsize[1]), rotation=90), dpi=dpi) for text in row_labels]
 
     return fig_table_from_ims(ims, col_label_ims=col_labels, row_label_ims=row_labels, h_spacing=h_spacing, v_spacing=v_spacing)
