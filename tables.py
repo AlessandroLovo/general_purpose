@@ -1,8 +1,56 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import colorspacious as cs
+from PIL import Image
+from pathlib import Path
+import os
+
+def file_no_duplicate(filename:str):
+    """
+    Generates a unique filename by appending a numerical suffix if the given filename already exists.
+
+    Parameters:
+        filename (str): The original filename.
+
+    Returns:
+        str: A unique filename that does not exist in the current directory or its subdirectories.
+    """
+    if not os.path.exists(filename):
+        return filename
+    spl = filename.rsplit('/',1)
+    if len(spl) == 2:
+        path, filename = spl
+    else:
+        path = '.'
+    spl  = filename.rsplit('.',1)
+    if len(spl) == 2:
+        filename, ext = spl
+        ext = f'.{ext}'
+    else:
+        ext = ''
+    uniq = 1
+    while True:
+        new_filename = f'{path}/{filename}_{uniq}{ext}'
+        if not os.path.exists(new_filename):
+            return new_filename
+        uniq += 1
+
+def fig2img(fig:plt.Figure, dpi=300, save_name=None, keep_filename=False):
+    if save_name is None:
+        save_name = 'temp.png'
+    save_name = file_no_duplicate(save_name)
+    fig.savefig(save_name, dpi=dpi)
+    im = Image.open(save_name)
+    if not keep_filename:
+        os.remove(save_name)
+    return im
 
 rgb2lab = cs.cspace_converter("sRGB1", "CAM02-UCS")
+
+def rescale(image:Image.Image, scale_factor:float=1):
+    new_size = np.array(image.size) * scale_factor
+    new_size_int = tuple([int(l) for l in new_size])
+    return image.resize(new_size_int)
 
 def frmt(x:np.ndarray, precision=2):
     '''
@@ -229,3 +277,85 @@ def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax
     tbl += "\\end{tabular}"
     
     return tbl
+
+
+def make_label_im(text, figsize, rotation=0, dpi=300):
+    plt.close(0)
+    fig = plt.figure(figsize=figsize, num=0)
+    fig.text(0.5,0.5,text, ha='center',va='center', rotation=rotation)
+    return fig2img(fig, dpi=dpi)
+
+def fig_table_from_ims(ims, col_label_ims=None, row_label_ims=None, h_spacing=0, v_spacing=None):
+    if col_label_ims is not None:
+        assert ims.shape[1] == len(col_label_ims)
+        col_label_ims = np.array(col_label_ims, dtype=object)
+    if row_label_ims is not None:
+        assert ims.shape[0] == len(row_label_ims)
+        row_label_ims = np.array(row_label_ims, dtype=object)
+        
+    if col_label_ims is not None:
+        ims = np.vstack([col_label_ims, ims])
+        if row_label_ims is not None:
+            cornerpiece = Image.new('RGB', (2,2))
+            row_label_ims = np.array([cornerpiece] + list(row_label_ims), dtype=object)
+    if row_label_ims is not None:
+        ims = np.vstack([row_label_ims, ims.T]).T
+
+    nrow, ncol = ims.shape
+        
+    sizes = np.array([im.size for im in ims.reshape(-1)]).reshape((nrow,ncol,2))
+    col_widths = np.max(sizes[...,0], axis=0)
+    row_heights = np.max(sizes[...,1], axis=1)
+    if h_spacing is not None:
+        h_spacing = int(h_spacing*np.max(col_widths))
+        if v_spacing is None:
+            v_spacing = h_spacing
+        else:
+            v_spacing = int(v_spacing*np.max(row_heights))
+    elif v_spacing is not None:
+        h_spacing = v_spacing = int(v_spacing*np.max(row_heights))
+    else:
+        h_spacing = v_spacing = 0
+    
+    core_height = np.sum(row_heights) + v_spacing*(nrow - 1)
+    core_width = np.sum(col_widths) + h_spacing*(ncol - 1)
+    
+    new_im_size = (core_width, core_height)
+    
+    new_im = Image.new('RGB', new_im_size)
+    
+    
+    anchor = np.array([0,0], dtype=int)
+    for r in range(nrow):
+        h = row_heights[r] # cell height
+        anchor[0] = 0
+        for c in range(ncol):
+            w = col_widths[c] # col width
+            im = ims[r,c]
+            offset = np.array((w - im.size[0])//2, (h - im.size[1])//2)
+            
+            new_im.paste(im, tuple(anchor + offset))
+            
+            anchor[0] += w + h_spacing
+        anchor[1] += h + v_spacing
+            
+    return new_im
+
+def fig_table(plotting_function, vals, col_labels=None, row_labels=None, figsize=(7,3), dpi=300, label_thickness=1, h_spacing=0, v_spacing=None, **kwargs):
+    if col_labels is not None:
+        assert vals.shape[1] == len(col_labels)
+    if row_labels is not None:
+        assert vals.shape[0] == len(row_labels)
+    
+    ims = np.empty((vals.shape[0], vals.shape[1]), dtype=object)
+    for i in range(vals.shape[0]):
+        for j in range(vals.shape[1]):
+            fig = plotting_function(vals[i,j], figsize=figsize, **kwargs)
+            ims[i,j] = tbl.fig2img(fig, dpi=dpi)
+
+    if col_labels is not None:
+        col_labels = [make_label_im(text, figsize=(figsize[0], label_thickness), dpi=dpi) for text in col_labels]
+    if row_labels is not None:
+        row_labels = [make_label_im(text, figsize=(label_thickness, figsize[1]), rotation=90, dpi=dpi) for text in row_labels]
+
+    return fig_table_from_ims(ims, col_label_ims=col_labels, row_label_ims=row_labels, h_spacing=h_spacing, v_spacing=v_spacing)
