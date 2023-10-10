@@ -505,6 +505,15 @@ def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latit
             mx = [mx]*n_fields
 
     ims = []
+    levels = kwargs.pop('levels', 7)
+    if isinstance(levels, list):
+        assert len(levels) == n_fields
+    else:
+        levels = [levels]*n_fields
+    for i in range(n_fields):
+        if levels[i] is None:
+            levels[i] = 7
+
     norm = kwargs.pop('norm', None)
     if colorbar == 'shared':
         if norm is None:
@@ -513,6 +522,12 @@ def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latit
             norm = matplotlib.colors.TwoSlopeNorm(vcenter=0., vmin=-mx, vmax=mx)
         else:
             logger.warning('Using provided norm')
+
+        for i in range(n_fields):
+            if isinstance(levels[i], int):
+                levels[i] = np.linspace(-mx,mx, levels[i])
+            else:
+                logger.warning('Using provided levels, this may not guarantee a shared colorbar')
 
     put_colorbar = kwargs.pop('put_colorbar', True)
     common_colorbar = False
@@ -550,6 +565,8 @@ def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latit
             if _mx is None:
                 _mx = np.nanmax(np.abs(_f)) or 1
             _norm = matplotlib.colors.TwoSlopeNorm(vcenter=0., vmin=-_mx, vmax=_mx)
+        if isinstance(levels[i], int):
+            levels[i] = np.linspace(-_mx,_mx, levels[i])
         
         if one_fig_layout:
             if isinstance(one_fig_layout, int):
@@ -567,7 +584,7 @@ def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latit
         if extents[i]:
             m.set_extent(extents[i])
 
-        ims.append(geo_plotter(m, lon, lat, _f, title=titles[i], norm=_norm, put_colorbar=put_colorbar, **kwargs))
+        ims.append(geo_plotter(m, lon, lat, _f, title=titles[i], norm=_norm, levels=levels, put_colorbar=put_colorbar, **kwargs))
 
         if not one_fig_layout and apply_tight_layout:
             fig.tight_layout()
