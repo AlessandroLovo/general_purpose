@@ -612,7 +612,7 @@ def multiple_field_plot(lon, lat, f, significance=None, projections=ccrs.Orthogr
         ims.append(geo_plotter(m, lon, lat, _f, title=titles[i], norm=_norm, levels=levels[i], put_colorbar=put_colorbar, **kwargs))
 
         if significance is not None:
-            significance_hatching(m, lon, lat, significance, hatches=significance_hatches, greenwich=kwargs.get('greenwich', False))
+            significance_hatching(m, lon, lat, significance[...,i], hatches=significance_hatches, greenwich=kwargs.get('greenwich', False))
 
         if not one_fig_layout and apply_tight_layout:
             fig.tight_layout()
