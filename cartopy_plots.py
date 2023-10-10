@@ -337,6 +337,27 @@ def geo_contour_color(m, lon, lat, values, t_values=None, t_threshold=None, leve
         cpl = m.clabel(cps, colors=[colors[i]], manual=False, inline=True, fmt=fmt, fontsize=fontsize)
     
     return cn, cnl, cp, cpl, cns, cps
+
+def significance_hatching(m, lon, lat, significance, hatches=('//', None), greenwich=False, **kwargs):
+    """
+    Generate a contour plot with significance hatching. This is meant to be used in conjunction with `geo_plotter`
+
+    Parameters:
+    - m: A map object.
+    - lon: An array-like object representing the longitudes.
+    - lat: An array-like object representing the latitudes.
+    - significance: An array-like of bool object representing the whether the data is significant.
+    - hatches: 2-ple of strings representing the hatching pattern, respectively for non-significant and significant values.
+    - **kwargs: Additional keyword arguments to be passed to the contourf function.
+
+    Returns:
+    - A contour plot with significance hatching.
+    """
+    if greenwich:
+        _lon, _lat, _sign = Greenwich(lon, lat, significance)
+    else:
+        _lon, _lat, _sign = lon, lat, significance
+    return m.contourf(_lon, _lat, _sign, transform=data_proj, levels=[-0.5,0.5], colors='none', cmap=None, hatches=hatches, **kwargs)
         
 def PltMaxMinValue(m, lon, lat, values, colors=['red','blue']):
     '''
@@ -425,8 +446,8 @@ def ShowArea(lon_mask, lat_mask, field_mask, coords=[-7,15,40,60], **kwargs):
 
 
 
-def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latitude=90), extents=None, figsize=(9,6), fig_num=None, one_fig_layout=False,
-                        colorbar='individual', mx=None, titles=None, apply_tight_layout=True, **kwargs):
+def multiple_field_plot(lon, lat, f, significance=None, projections=ccrs.Orthographic(central_latitude=90), extents=None, figsize=(9,6), fig_num=None, one_fig_layout=False,
+                        colorbar='individual', mx=None, titles=None, apply_tight_layout=True, significance_hatches=('//', None), **kwargs):
     '''
     Plots several fields
 
@@ -438,6 +459,8 @@ def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latit
         latitude: either 1D or meshgridded
     f : np.ndarray
         fields to plot, with shape (lat, lon, nfields)
+    significance : np.ndarray[bool], optional
+        Array of the same shape as f, with the significance of each pixel
     projections : ccrs.Projection or list[ccrs.Projection], optional
         projection to use for each field, by default ccrs.Orthographic(central_latitude=90)
     extents : tuple or list[tuple], optional
@@ -466,6 +489,8 @@ def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latit
         titles for each field, by default None
     apply_tight_layout : bool, optional
         Whether to apply tight layout to the figure. Default True
+    significance_hatches : tuple, optional
+        Hatches to use for respectively for non-significant and significant pixels, by default ('//', None)
 
     **kwargs:
         passed to geo_plotter
@@ -585,6 +610,9 @@ def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latit
             m.set_extent(extents[i])
 
         ims.append(geo_plotter(m, lon, lat, _f, title=titles[i], norm=_norm, levels=levels, put_colorbar=put_colorbar, **kwargs))
+
+        if significance is not None:
+            significance_hatching(m, lon, lat, significance, hatches=significance_hatches, greenwich=kwargs.get('greenwich', False))
 
         if not one_fig_layout and apply_tight_layout:
             fig.tight_layout()
