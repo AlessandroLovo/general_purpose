@@ -357,7 +357,7 @@ def significance_hatching(m, lon, lat, significance, hatches=('//', None), green
         _lon, _lat, _sign = Greenwich(lon, lat, significance)
     else:
         _lon, _lat, _sign = lon, lat, significance
-    return m.contourf(_lon, _lat, _sign, transform=data_proj, levels=[-0.5,0.5], colors='none', cmap=None, hatches=hatches, **kwargs)
+    return m.contourf(_lon, _lat, _sign, transform=data_proj, levels=[-0.5,0.5,1.5], colors='none', cmap=None, hatches=hatches, **kwargs)
         
 def PltMaxMinValue(m, lon, lat, values, colors=['red','blue']):
     '''
