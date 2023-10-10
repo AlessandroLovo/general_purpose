@@ -196,7 +196,7 @@ def geo_contourf(m, lon, lat, values,
                  draw_coastlines=True, draw_gridlines=True, draw_labels=True,
                  greenwich=False, **kwargs):
     '''
-    Contourf plot together with coastlines and meridians
+    Contourf plot together with coastlines and meridians. Here just for backward compatibility. See geo_plotter
     
     Parameters:
     -----------
