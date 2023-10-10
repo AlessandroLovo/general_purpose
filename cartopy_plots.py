@@ -541,9 +541,9 @@ def multiple_field_plot(lon, lat, f, significance=None, projections=ccrs.Orthogr
 
     norm = kwargs.pop('norm', None)
     if colorbar == 'shared':
+        if mx is None:
+            mx = np.nanmax(np.abs(f)) or 1
         if norm is None:
-            if mx is None:
-                mx = np.nanmax(np.abs(f)) or 1
             norm = matplotlib.colors.TwoSlopeNorm(vcenter=0., vmin=-mx, vmax=mx)
         else:
             logger.warning('Using provided norm')
@@ -585,10 +585,10 @@ def multiple_field_plot(lon, lat, f, significance=None, projections=ccrs.Orthogr
     for i in range(n_fields):
         _f = f[...,i]
         _norm = norm
+        _mx = mx[i]
+        if _mx is None:
+            _mx = np.nanmax(np.abs(_f)) or 1
         if _norm is None and colorbar == 'individual':
-            _mx = mx[i]
-            if _mx is None:
-                _mx = np.nanmax(np.abs(_f)) or 1
             _norm = matplotlib.colors.TwoSlopeNorm(vcenter=0., vmin=-_mx, vmax=_mx)
         if isinstance(levels[i], int):
             levels[i] = np.linspace(-_mx,_mx, levels[i])
@@ -609,7 +609,7 @@ def multiple_field_plot(lon, lat, f, significance=None, projections=ccrs.Orthogr
         if extents[i]:
             m.set_extent(extents[i])
 
-        ims.append(geo_plotter(m, lon, lat, _f, title=titles[i], norm=_norm, levels=levels, put_colorbar=put_colorbar, **kwargs))
+        ims.append(geo_plotter(m, lon, lat, _f, title=titles[i], norm=_norm, levels=levels[i], put_colorbar=put_colorbar, **kwargs))
 
         if significance is not None:
             significance_hatching(m, lon, lat, significance, hatches=significance_hatches, greenwich=kwargs.get('greenwich', False))
@@ -637,12 +637,13 @@ def mfp(lon, lat, f,  # This functions maps to multiple_field_plot() and not the
         extents=[None, None, (-5, 10, 39, 60)],
         titles=['Temperature [K]', 'Geopotential [m]', 'Soil Moisture [m]'],
         mode='pcolormesh',
+        greenwich=True,
         draw_gridlines=False, draw_labels=False,
         **kwargs):
     '''Simply multiple field plot with useful default arguments'''
     return multiple_field_plot(lon, lat, f,
                                projections=projections, fig_num=fig_num, extents=extents, titles=titles, mode=mode,
-                               draw_gridlines=draw_gridlines, draw_labels=draw_labels,
+                               draw_gridlines=draw_gridlines, draw_labels=draw_labels, greenwich=greenwich,
                                **kwargs) 
 
 def multiple_field_plot2(lon, lat, f, projections=ccrs.Orthographic(central_latitude=90), extents=None, 
