@@ -49,6 +49,43 @@ def Greenwich(*args):
     args[0][...,-1] += 360 # fix the longitude
     return args
 
+def is_monotonic(lon:np.ndarray) -> bool:
+    return np.all(np.diff(lon) > 0) or np.all(np.diff(lon) < 0)
+
+def monotonize_longitude(lon:np.ndarray) -> np.ndarray:
+    """
+    Generate a new array of longitudes that is monotonically increasing.
+
+    Parameters:
+        lon (np.ndarray): The input array of longitudes.
+
+    Returns:
+        np.ndarray: The monotonized array of longitudes.
+
+    Raises:
+        AssertionError: If the input array is not 1-dimensional.
+        ValueError: If more than one sign change is detected in the array.
+    """
+    assert len(lon.shape) == 1, 'Only 1D arrays are allowed'
+    is_increasing = np.diff(lon) > 0
+    nsc = len(set(list(is_increasing))) - 1 # number of sign changes
+    if not nsc:
+        return lon
+    elif nsc > 1:
+        raise ValueError('Only one sign change is allowed')
+
+    is_overall_increasing = np.mean(is_increasing) > 0
+    if not is_overall_increasing: # flip the array so it is overall increasing
+        lon = lon[::-1]
+        is_increasing = np.diff(lon) > 0
+    
+    lon[:np.argmin(is_increasing) + 1] -= 360
+
+    if not is_overall_increasing: # flip the array back to decreasing
+        lon = lon[::-1]
+
+    return lon
+
 def draw_map(m, background='stock_img', **kwargs):
     '''
     Plots a background map using cartopy.
@@ -104,10 +141,18 @@ def geo_plotter(m, lon, lat, values, mode='contourf',
     im : the plotted object
     '''
     orientation = kwargs.pop('orientation','vertical') # colorbar orientation
+    assert lon.shape == lat.shape == values.shape, 'lon, lat and values must have the same shape'
 
-    if greenwich and mode in ['scatter', 'pcolormesh']:
-        logger.warning('Ignoring greenwich kwarg')
-        greenwich = False
+    if mode in ['scatter', 'pcolormesh']:
+        if greenwich:
+            logger.warning('Ignoring greenwich kwarg')
+            greenwich = False
+    else:
+        # check that longitude is monotonically increasing
+        for i in range(lon.shape[0]):
+            if not is_monotonic(lon[i,:]):
+                logger.warning('Longitude is not monotonic! Monotonizing it.')
+                lon[i,:] = monotonize_longitude(lon[i,:])
     if greenwich:
         _lon, _lat, _values = Greenwich(lon, lat, values)
     else:
