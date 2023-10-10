@@ -9,6 +9,7 @@ import warnings
 from collections import deque
 from pathlib import Path
 import sys
+from functools import wraps
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -580,6 +581,7 @@ def multiple_field_plot(lon, lat, f, projections=ccrs.Orthographic(central_latit
     
     return ims
 
+@wraps(multiple_field_plot)
 def mfp(lon, lat, f,  # This functions maps to multiple_field_plot() and not the merge conflict multiple_field_plot2()
          projections=[
             ccrs.Orthographic(central_latitude=90),
