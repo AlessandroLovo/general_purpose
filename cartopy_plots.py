@@ -582,6 +582,9 @@ def multiple_field_plot(lon, lat, f, significance=None, projections=ccrs.Orthogr
         plt.close(fig_num)
         fig = plt.figure(num=fig_num, figsize=figsize)
 
+    if not isinstance(mx, list):
+        mx = [mx]*n_fields
+
     for i in range(n_fields):
         _f = f[...,i]
         _norm = norm
