@@ -11,3 +11,7 @@ Utilities for dealing with data with uncertainties. Built on top of the `uncerta
 ## `utilities`
 
 Functions for improved logging (also to telegram), dealing with nested dictionaries, permutations and more.
+
+## `tables`
+
+Functions for simplifying the redaction of tables, both with matplotlib and with LaTeX
