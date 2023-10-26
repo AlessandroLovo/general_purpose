@@ -674,6 +674,10 @@ def key_exists(d_nested:dict, key:str) -> bool:
         return True
     except KeyError:
         return False
+    
+def keys_exists(d_nested:dict, key:str) -> bool:
+    logger.warning('Deprecated, use key_exists instead')
+    return key_exists(d_nested, key)
 
 
 def set_values_recursive(d_nested:dict, d_flat:dict, inplace=False, inspectable_keys='.*_kwargs') -> dict:
