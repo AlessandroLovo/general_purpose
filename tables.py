@@ -172,7 +172,7 @@ def table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, color_r
     
     return fig
 
-def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax=None, color_range=None, cmap='hot', text_digits=2, rgb_digits=8, white_text_if_lightness_below=25, xlabel=None, ylabel=None, title=None, center_title=False, side_xlabel=False, close_left=True, close_top=True):
+def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax=None, color_range=None, cmap='hot', text_digits=2, rgb_digits=8, white_text_if_lightness_below=25, xlabel=None, ylabel=None, title=None, center_title=False, side_xlabel=False, close_left=True, close_top=True, leading_indentation=0):
     """
     Generates a LaTeX table coloring the cells based on their values.
 
@@ -200,6 +200,7 @@ def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax
     Returns:
         str: The LaTeX code for the generated table, as string.
     """
+    leading_indentation = '\t' * leading_indentation
     if row_labels is not None:
         assert vals.shape[0] == len(row_labels)
     else:
@@ -233,8 +234,9 @@ def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax
     else:
         side_xlabel = ''
     
-    tbl = "\\begin{tabular}{%s}\n" %(('|' if close_left else '') + 'c|'*(ncol + extra_left_cols))
+    tbl = leading_indentation + "\\begin{tabular}{%s}\n" %(('|' if close_left else '') + 'c|'*(ncol + extra_left_cols))
     if title:
+        tbl += leading_indentation
         if center_title:
             tbl += "\t\multicolumn{%d}{c}{%s} \\\\\n" %(ncol + extra_left_cols, title)
         elif extra_left_cols:
@@ -242,35 +244,37 @@ def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax
         else:
             tbl += "\t\multicolumn{%d}{c}{%s} \\\\\n" %(ncol, title)
     if close_top or not xlabel:
-        tbl += "\t\cline{%d-%d}\n" %(1 + extra_left_cols, ncol + extra_left_cols)
+        tbl += leading_indentation +"\t\cline{%d-%d}\n" %(1 + extra_left_cols, ncol + extra_left_cols)
     elif title:
-        tbl += "\t\midrule\n"
+        tbl += leading_indentation + "\t\midrule\n"
     
     # xlabel top line
     if xlabel:
+        tbl += leading_indentation
         if extra_left_cols:
             tbl += "\t\multicolumn{%d}{%s}{} & " %(extra_left_cols, 'c|' if close_top else 'c')
         else:
             tbl += "\t"
         tbl += "\multicolumn{%d}{%s}{%s} \\\\\n" %(ncol, ('|' if close_left and not extra_left_cols else '') + ('c|' if close_top else 'c'), xlabel)
-        tbl += "\t\cline{%d-%d}\n" %(1 + extra_left_cols, ncol + extra_left_cols)
+        tbl += leading_indentation + "\t\cline{%d-%d}\n" %(1 + extra_left_cols, ncol + extra_left_cols)
     
     # col labels
     if col_labels is not None:
+        tbl += leading_indentation
         if extra_left_cols:
             tbl += "\t\multicolumn{%d}{c|}{%s} & " %(extra_left_cols, side_xlabel)
         else:
             tbl += "\t"
         tbl += ' & '.join(str(cl) for cl in col_labels) + ' \\\\\n'
-        tbl += "\t\cline{%d-%d}\n" %(max(1, extra_left_cols - bool(close_left)), ncol + extra_left_cols)
+        tbl += leading_indentation + "\t\cline{%d-%d}\n" %(max(1, extra_left_cols - bool(close_left)), ncol + extra_left_cols)
     
     # ylabel leftmost column
     if ylabel:
-        tbl += "\t\multirow{%d}{*}{\\rotatebox[origin=c]{90}{%s}}\n" %(nrow, ylabel)
+        tbl += leading_indentation + "\t\multirow{%d}{*}{\\rotatebox[origin=c]{90}{%s}}\n" %(nrow, ylabel)
     
     # values
     for r in range(nrow):
-        tbl += '\t'
+        tbl += leading_indentation + '\t'
         if ylabel:
             tbl += ' & '
         if row_labels is not None:
@@ -296,7 +300,7 @@ def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax
         else:
             tbl += "\t\cline{%d-%d}\n" %(max(1,extra_left_cols - bool(close_left)), ncol + extra_left_cols)
     
-    tbl += "\\end{tabular}"
+    tbl += leading_indentation + "\\end{tabular}"
     
     return tbl
 
