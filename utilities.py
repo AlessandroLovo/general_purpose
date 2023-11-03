@@ -422,6 +422,30 @@ class FileLogger(CMLogger):
 
 class Reshaper(object):
     def __init__(self, reshape_mask, fill_value=0):
+        '''
+        Object for reshaping data, restricting to a subset of features, for example removing zero-variance ones.
+        For example, let us assume we have data with shape (N, d, l, m) where N is the amount of data and d*l*m is the total number of features, of which k < d*l*m have non-zero-variance.
+        This object allows easy conversion between the shapes (..., d,l,m) and (..., k)
+
+        Parameters
+        ----------
+        reshape_mask : np.ndarray[bool]
+            mask indicating the non-zero-variance features
+        fill_value : float, optional
+            value to give zero-variance features when reshaping back to the original shape, by default 0
+
+
+        Examples
+        --------
+        >>> data = np.random.randn(100, 5, 3, 2)
+        >>> data[:, 1:4, 0:2, 0] = 0
+        >>> reshaper = Reshaper(np.std(data, axis=0) > 0)
+        >>> reshaper.surving_coords # number of non-zero-variance features
+        34
+        >>> data_r = reshaper.reshape(data)
+        >>> data_r.shape
+        (100, 34)
+        '''
         self.reshape_mask = reshape_mask
         self.fill_value = fill_value
         self._index_map = None
@@ -431,14 +455,24 @@ class Reshaper(object):
         self.surviving_coords = np.sum(self.reshape_mask)
     
     def reshape(self, X:np.ndarray) -> np.ndarray:
+        '''
+        reshape data: (..., d,l,m) -> (..., k)
+        '''
         return X[...,self.reshape_mask]
 
     def inv_reshape(self, X:np.ndarray) -> np.ndarray:
+        '''
+        inverse rehape data: (..., k) -> (..., d,l,m)
+        self.fill_value is used for zero-variance features
+        '''
         _X = self.fill_value*np.ones(X.shape[:-1] + self.reshape_mask.shape, dtype=float)
         _X[...,self.reshape_mask] = X
         return _X
 
     def reshape_index(self, i:tuple) -> tuple:
+        '''
+        Get index in the reshaped array. If the index is masked out, an error is raised
+        '''
         if len(i) > self.reshaped_dimensions:
             return (i[:-self.reshaped_dimensions], self.reshape_index(i[-self.reshaped_dimensions:]))
         new_i = self.index_map[i]
@@ -447,6 +481,9 @@ class Reshaper(object):
         return new_i
 
     def inv_reshape_index(self, i:tuple) -> tuple:
+        '''
+        Get the index in the original array from the one in the new array
+        '''
         try:
             if len(i) > 1:
                 return tuple(i[:-1]) + self.inv_reshape_index(i[-1])
