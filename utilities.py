@@ -365,12 +365,12 @@ class TelegramLogger(CMLogger):
         Examples
         --------
         >>> with TelegramLogger(logging.getLogger(), '~/telegram_chat_ID.txt', '~/telegram_bot_token.txt', level=logging.WARNING):
-        >>>     logging.error('Oh no an error occurred')
+        ...     logging.error('Oh no an error occurred')
 
         You can also use a specific logger instead of the root one
         >>> logger = logging.getLogger('myLogger')
         >>> with TelegramLogger(logger, '~/telegram_chat_ID.txt', '~/telegram_bot_token.txt', level=logging.WARNING):
-        >>>     logger.error('Oh no an error occurred')
+        ...     logger.error('Oh no an error occurred')
         '''
         super().__init__(logger=logger, level=level)
         self.chat_ID = chat_ID
@@ -399,12 +399,12 @@ class FileLogger(CMLogger):
         Examples
         --------
         >>> with FileLogger(logging.getLogger(), 'log.log', level=logging.WARNING):
-        >>>     logging.error('Oh no an error occurred')
+        ...     logging.error('Oh no an error occurred')
 
         You can also use a specific logger instead of the root one
         >>> logger = logging.getLogger('myLogger')
         >>> with FileLogger(logger, 'log.log', level=logging.WARNING):
-        >>>     logger.error('Oh no an error occurred')
+        ...     logger.error('Oh no an error occurred')
         '''
         super().__init__(logger=logger, level=level)
         self.filename = Path(filename)
@@ -438,13 +438,27 @@ class Reshaper(object):
         Examples
         --------
         >>> data = np.random.randn(100, 5, 3, 2)
-        >>> data[:, 1:4, 0:2, 0] = 0
+        >>> data[:, 1:4, 0:2, 0] = 1
         >>> reshaper = Reshaper(np.std(data, axis=0) > 0)
-        >>> reshaper.surving_coords # number of non-zero-variance features
-        34
+        >>> reshaper.surviving_coords # number of non-zero-variance features
+        24
         >>> data_r = reshaper.reshape(data)
         >>> data_r.shape
-        (100, 34)
+        (100, 24)
+        >>> data_ir = reshaper.inv_reshape(data_r[:10,...])
+        >>> data_ir.shape
+        (10, 5, 3, 2)
+        >>> np.all(data_ir[..., ~reshaper.reshape_mask] == 0) # zero-variance features are filled with reshaper.fill_value
+        True
+        >>> i = (1,0,1)
+        >>> reshaper.reshape_index(i)
+        6
+        >>> reshaper.reshape_index((10,1,0,1))
+        (10, 6)
+        >>> reshaper.inv_reshape_index(6)
+        (1, 0, 1)
+        >>> reshaper.inv_reshape_index((14,6))
+        (14, 1, 0, 1)
         '''
         self.reshape_mask = reshape_mask
         self.fill_value = fill_value
@@ -474,7 +488,7 @@ class Reshaper(object):
         Get index in the reshaped array. If the index is masked out, an error is raised
         '''
         if len(i) > self.reshaped_dimensions:
-            return (i[:-self.reshaped_dimensions], self.reshape_index(i[-self.reshaped_dimensions:]))
+            return (*(i[:-self.reshaped_dimensions]), self.reshape_index(i[-self.reshaped_dimensions:]))
         new_i = self.index_map[i]
         if new_i < 0:
             raise IndexError(f'index {i} is masked out: no representation in the reshaped array')
@@ -484,12 +498,10 @@ class Reshaper(object):
         '''
         Get the index in the original array from the one in the new array
         '''
-        try:
+        if not isinstance(i, int):
             if len(i) > 1:
                 return tuple(i[:-1]) + self.inv_reshape_index(i[-1])
             i = i[0]
-        except (AttributeError, TypeError): # i was an int
-            pass
         return np.unravel_index(self.inv_index_map_flat[i], self.reshape_mask.shape)
 
     @property
