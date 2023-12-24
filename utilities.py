@@ -69,6 +69,13 @@ default_formatter = logging.Formatter('%(asctime)s %(message)s', datefmt='%m/%d/
 ## indenting ####
 indentation_sep = '\t' # spacing amount at each indentation
 
+def get_logger(logger):
+    if logger is None:
+        logger = logging.getLogger()
+    if isinstance(logger, str):
+        logger = logging.getLogger(logger)
+    return logger
+
 def indent_write(write):
     '''
     decorator for a function that writes to a stream, e.g. sys.stdout or a file. Indents the message.
@@ -163,10 +170,7 @@ def indent_logger(logger=None):
     logger : logging.loggers.Logger, optional
         logger, if None the root logger is used. The default is None
     '''
-    if logger is None:
-        logger = logging.getLogger()
-    if isinstance(logger, str):
-        logger = logging.getLogger(logger)
+    logger = get_logger(logger)
     def wrapper_outer(func):
         @wraps(func)
         def wrapper_inner(*args, **kwargs):
@@ -182,7 +186,7 @@ def indent_logger(logger=None):
                 #         streams.append(s)
 
                 # assuming the loggers are not silly and so no stream is repeated
-                streams = [h.stream for h in c.handlers if hasattr(h, 'stream')]
+                streams += [h.stream for h in c.handlers if hasattr(h, 'stream')]
                 if not c.propagate:
                     c = None    #break out
                 else:
@@ -212,15 +216,39 @@ def indent_stdout(func):
     return indent(sys.stdout)(func)
 
 ## execution time    
-
 def execution_time(func):
+    '''
+    Prints the execution time of a function. Here for backward compatibility. Use `exec_time` instead if you want to specify a logger
+
+    Examples
+    --------
+    >>> @execution_time
+    ... def test(a):
+    ...     time.sleep(1)
+    ...     print(a)
+    >>> test('Hi')
+    test:
+    Hi
+    test: completed in 1.0 s
+    '''
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        logger.info(f'{func.__name__}:')
+        start_time = time.time()
+        r = func(*args, **kwargs)
+        logger.info(f'{func.__name__}: completed in {pretty_time(time.time() - start_time)}')
+        return r
+    return wrapper
+
+
+def exec_time(logger=None):
     '''
     Prints the execution time of a function
 
     Examples
     --------
     >>> logger.handlers = [logging.StreamHandler(sys.stdout)]
-    >>> @execution_time
+    >>> @exec_time(logger)
     ... def test(a):
     ...     time.sleep(1)
     ...     logger.info(a)
@@ -229,14 +257,17 @@ def execution_time(func):
     Hi
     test: completed in 1.0 s
     '''
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        start_time = time.time()
-        logger.info(f'{func.__name__}:')
-        r = func(*args, **kwargs)
-        logger.info(f'{func.__name__}: completed in {pretty_time(time.time() - start_time)}')
-        return r
-    return wrapper
+    logger = get_logger(logger)
+    def wrapper_outer(func):
+        @wraps(func)
+        def wrapper_inner(*args, **kwargs):
+            start_time = time.time()
+            logger.info(f'{func.__name__}:')
+            r = func(*args, **kwargs)
+            logger.info(f'{func.__name__}: completed in {pretty_time(time.time() - start_time)}')
+            return r
+        return wrapper_inner
+    return wrapper_outer
 
 #### TELEGRAM LOGGER ####
 
