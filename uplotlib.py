@@ -476,6 +476,27 @@ def avg(x:np.ndarray, weights=None, axis=None, mean_std=False):
     
     return ufloatify(m,s)
 
+def xr_avg(da, dim):
+    '''
+    Apply function `avg` to an xarray dataarray `da` along dimension(s) `dim`
+
+    Parameters
+    ----------
+    da : xr.DataArray
+        dataarray
+    dim : str or list[str]
+        dimension(s) along which to apply `avg`
+
+    Returns
+    -------
+    xr.DataArray[ufloat]
+        averaged dataarray
+    '''
+    import xarray as xr
+    if not isinstance(dim, list):
+        dim = [dim]
+    return xr.apply_ufunc(lambda x: avg(x).item(), da, input_core_dims=[dim], exclude_dims=set(dim), vectorize=True)
+
 def mad(x:np.ndarray, axis=None):
     '''
     Returns the median of the absolute deviations from the median. Useful for robust estimates.
