@@ -114,7 +114,7 @@ def indent(*streams):
     ...     print('before')
     ...     show(a)
     ...     print('after')
-    
+
     When running `test(24)` you will get
     before
         a = 24
@@ -191,7 +191,7 @@ def indent_logger(logger=None):
                     c = None    #break out
                 else:
                     c = c.parent
-            
+
             # save old write functions
             old_write = [stream.write if hasattr(stream, 'write') else None for stream in streams]
             # indent write functions
@@ -215,7 +215,7 @@ def indent_stdout(func):
     '''
     return indent(sys.stdout)(func)
 
-## execution time    
+## execution time
 def execution_time(func):
     '''
     Prints the execution time of a function. Here for backward compatibility. Use `exec_time` instead if you want to specify a logger
@@ -274,7 +274,7 @@ def exec_time(logger=None):
 def new_telegram_handler(chat_ID=None, token=None, level=logging.WARNING, formatter=default_formatter, **kwargs):
     '''
     Creates a telegram handler object.
-    
+
     To log to telegram you need to use a telegram Bot. You can create one by typing the command /newbot in the chat with the BotFather. When you finalize your bot, the BotFather will give you the authorization token.
     To be able to receive messages from the bot you will first need to start a chat with it using the command /start
 
@@ -304,10 +304,10 @@ def new_telegram_handler(chat_ID=None, token=None, level=logging.WARNING, format
         import telegram_handler # NOTE: to install this package run pip install python-telegram-handler
     except ImportError:
         logger.error('To be able to log to telegram, you need the package telegram_handler. You can install it with `pip install python-telegram-handler`')
-        return 
+        return
     if chat_ID is None or token is None:
         return
-    
+
     try:
         chat_ID = int(chat_ID)
     except: # `chat_ID is either string or path`
@@ -325,7 +325,7 @@ def new_telegram_handler(chat_ID=None, token=None, level=logging.WARNING, format
             token = token_file.readline().rstrip('\n')
     except FileNotFoundError:
         pass # we assume that `token` is the actual token, not the path to it
-    
+
     th = telegram_handler.handlers.TelegramHandler(token=token, chat_id=chat_ID, **kwargs)
     if isinstance(formatter, str):
         if formatter == 'default':
@@ -498,7 +498,7 @@ class Reshaper(object):
 
         self.reshaped_dimensions = len(self.reshape_mask.shape)
         self.surviving_coords = np.sum(self.reshape_mask)
-    
+
     def reshape(self, X:np.ndarray) -> np.ndarray:
         '''
         reshape data: (..., d,l,m) -> (..., k)
@@ -510,7 +510,7 @@ class Reshaper(object):
         inverse rehape data: (..., k) -> (..., d,l,m)
         self.fill_value is used for zero-variance features
         '''
-        _X = self.fill_value*np.ones(X.shape[:-1] + self.reshape_mask.shape, dtype=float)
+        _X = self.fill_value*np.ones(X.shape[:-1] + self.reshape_mask.shape, dtype=X.dtype)
         _X[...,self.reshape_mask] = X
         return _X
 
@@ -538,7 +538,7 @@ class Reshaper(object):
     @property
     def index_map(self):
         if self._index_map is None:
-            self.compute_index_map()  
+            self.compute_index_map()
         return self._index_map
 
     def compute_index_map(self):
@@ -566,7 +566,7 @@ def run_smart(func, default_kwargs, **kwargs): # this is not as powerful as it l
     func : function with signature func(**kwargs) -> None
     default_kwargs : dict
         default values for the keyword arguments of func
-    **kwargs : 
+    **kwargs :
         non default values of the keyword arguments. If a list is provided, the function is run iterating over the list
 
     Examples
@@ -633,7 +633,7 @@ def dict2json(d:dict, filename:str) -> None:
     '''
     with open(filename, 'w') as j:
         json.dump(d, j, indent=4)
-        
+
 def dict2str(d:dict, indent=4, **kwargs) -> str:
     '''
     A nice way of printing a nested dictionary
@@ -661,7 +661,7 @@ def collapse_dict(d_nested:dict, d_flat:dict=None, collapsable_keys='.*_kwargs')
         '.*': all keys can be collapsed
         '.*kwagrs': all keys ending in 'kwargs' can be collapsed
         For more see documentation of package `re`
-    
+
     Returns
     -------
     d_flat: dict
@@ -706,7 +706,7 @@ def extract_nested(d_nested:dict, key:str, if_not_found='raise'):
         What to do if the key is not found in the dictionary.
         If 'raise' (default) a KeyError is raised. Otherwise, the value provided is returned instead of raising an error.
         This mimics the effect of the `get` function of dictionaries.
-    
+
     Returns
     -------
     v : Any
@@ -729,7 +729,7 @@ def extract_nested(d_nested:dict, key:str, if_not_found='raise'):
     >>> extract_nested(d, 'v', 14)
     14
     '''
-    try: 
+    try:
         return deepcopy(d_nested[key])
     except KeyError:
         for v in d_nested.values():
@@ -749,12 +749,12 @@ def key_exists(d_nested:dict, key:str) -> bool:
     Checks if `key` (str) appears in `d_nested` (nested dict) at some level of indentation.
     This is basically like extract_nested() but does not raise the KeyError as the output
     '''
-    try: 
+    try:
         _element = extract_nested(d_nested, key)
         return True
     except KeyError:
         return False
-    
+
 def keys_exists(d_nested:dict, key:str) -> bool:
     logger.warning('Deprecated, use key_exists instead')
     return key_exists(d_nested, key)
@@ -799,7 +799,7 @@ def set_values_recursive(d_nested:dict, d_flat:dict, inplace=False, inspectable_
     '''
     if len(d_flat) == 0:
         return d_nested
-    
+
     if inplace:
         d_n = d_nested
     else:
@@ -923,14 +923,14 @@ def make_safe(path:str) -> str:
     path_to = None
     if '/' in path:
         path_to, path = path.rsplit('/', 1)
-    
+
     if len(path) > MAX_FILENAME_LENGTH:
         clipped_path = path[:MAX_FILENAME_LENGTH - 3] + '...'
         logger.warning(f'Too long filename\n\t{path}\nClipping to\n\t{clipped_path}')
         path = clipped_path
     if path_to is not None:
         path = f'{path_to}/{path}'
-    
+
     return path
 
 def first_valid_path(paths, filenames):
@@ -979,10 +979,10 @@ def first_valid_path(paths, filenames):
 
 ### IMPORT MODULE FROM A FILE ###
 
-def module_from_file(module_name, file_path): 
+def module_from_file(module_name, file_path):
     '''
     The code that imports the file which originated the training with all the instructions
-    
+
     Parameters
     ----------
     module_name : str
@@ -997,7 +997,7 @@ def module_from_file(module_name, file_path):
     Examples
     --------
     foo = module_from_file("foo", 'models/Funs.py')
-    
+
     Potential Problems
     --------
         When used with files generated by Learn2_new.py we get an error:
@@ -1044,7 +1044,7 @@ def compose_permutations(permutations):
     ----------
     permutations : list
         list of 1D array-like that must be a permutation of an array of the kind `np.arange(n)` with `n` integer and the same for every permutation
-    
+
     Examples
     --------
     >>> a = np.array([3,4,2,5])
@@ -1080,7 +1080,7 @@ def average_with_significance(x:np.ndarray, axis=0, significance_level=0):
     Parameters
     ----------
     x : np.ndarray
-        
+
     axis : int, optional
         axis over which to perform the operation, by default 0
     significance_level : float, optional
@@ -1134,16 +1134,16 @@ def significative_data(data, t_values=None, t=None, both=False, default_value=0)
             return None, 0, 0
         else:
             return None, 0
-    
+
     data = np.array(data)
-    
+
     if t_values is None or t is None:
         logger.warn('Assuming all data are significant')
         if both:
             return data, np.ones_like(data)*default_value, np.product(data.shape)
         else:
             return data, np.product(data.shape)
-        
+
     t_values = np.array(t_values)
     if data.shape != t_values.shape:
         raise ValueError('Shape mismatch')
@@ -1153,14 +1153,14 @@ def significative_data(data, t_values=None, t=None, both=False, default_value=0)
     mask = t_values >= t
     N_points_taken = np.sum(mask)
     Out_taken[np.logical_not(mask)] = default_value
-    
+
     if both:
         Out_not_taken = data.copy()
         Out_not_taken[mask] = default_value
         return Out_taken, Out_not_taken, N_points_taken
     else:
         return Out_taken, N_points_taken
-    
+
 ### stuff useful for computing metrics ####
 
 def entropy(p, q=None, epsilon=1e-15) -> np.ndarray:
@@ -1184,7 +1184,7 @@ def unbias_probabilities(Y_pred_prob, u=1):
                             u P[Y=0]_biased
     P[Y=0]_unbiased = ----------------------------
                        1 - (1 - u) P[Y=0]_biased
-    
+
     Parameters
     ----------
     Y_pred_prob : np.ndarray of shape (n, 2)
@@ -1242,7 +1242,7 @@ def zipped_meshgrid(*xi):
     --------
     >>> zipped_meshgrid([1,2], [10,11,12])
     [(1, 10), (1, 11), (1, 12), (2, 10), (2, 11), (2, 12)]
-    
+
     >>> zipped_meshgrid([1,2], ['a','b'])
     [(1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')]
 
@@ -1290,16 +1290,16 @@ class DelayedInitWrapper(object):
     0
 
     '''
-    
+
     wrargs = ['obj', '_constructor', '_init_args', '_init_kwargs']
-    
+
     def __init__(self, constructor, *args, **kwargs):
         self.obj = None
         self._constructor = constructor
         self._init_args = args
         self._init_kwargs = kwargs
-        
-    
+
+
     def __getattribute__(self, name):
         if name in object.__getattribute__(self,'__dict__'):
         # if name in object.__getattribute__(self,'__dir__')():
@@ -1308,7 +1308,7 @@ class DelayedInitWrapper(object):
             # print(f'Called {name}')
             self.obj = self._constructor(*self._init_args, **self._init_kwargs)
         return self.obj.__getattribute__(name)
-    
+
     # def __getattr__(self, name):
     #     # if name in ['obj', '_constructor', '_init_args', '_init_kwargs']:
     #     #     return self.__dict__[name]
@@ -1316,8 +1316,8 @@ class DelayedInitWrapper(object):
     #         print(f'Called {name}')
     #         self.obj = self._constructor(*self._init_args, **self._init_kwargs)
     #     return self.obj.__getattribute__(name)
-    
-    
+
+
     def __setattr__(self, name, value):
         if name in DelayedInitWrapper.wrargs:
             object.__setattr__(self, name, value)
@@ -1345,8 +1345,8 @@ def adaptive_interpolation(func, x_range, max_xstep=0.1, max_ystep_rel=0.1, verb
         Maximum relative change of y between consecutive points, i.e. |1 - y[i-1]/y[i]|. The default is 0.1.
     verbose : bool, optional
         The default is False.
-        
-    **kwargs : 
+
+    **kwargs :
         additional arguments to pass to scipy.interpolate.interp1d
 
     Returns
@@ -1361,11 +1361,11 @@ def adaptive_interpolation(func, x_range, max_xstep=0.1, max_ystep_rel=0.1, verb
     '''
     if 'kind' not in kwargs:
         kwargs['kind'] = 'cubic'
-    
+
     xs = list(np.linspace(x_range[0], x_range[1], int((x_range[1] - x_range[0])/max_xstep)))
-    
+
     ys = [func(x) for x in xs]
-    
+
     i = len(ys) - 1
     while i > 0:
         if verbose:
@@ -1378,6 +1378,6 @@ def adaptive_interpolation(func, x_range, max_xstep=0.1, max_ystep_rel=0.1, verb
             i += 1
         else:
             i -= 1
-            
+
     yfunc = interpolate.interp1d(xs, ys, **kwargs)
     return np.array(xs), np.array(ys), yfunc
