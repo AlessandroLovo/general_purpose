@@ -275,6 +275,7 @@ def side_hist_plot(xdata, ydata, bins=30, external_axes=None, fit=True, **kwargs
     '''
     
     figsize = kwargs.pop('figsize', (10,7))
+    num = kwargs.pop('num', None)
     xlabel = kwargs.pop('xlabel', None)
     ylabel = kwargs.pop('ylabel', None)
     title = kwargs.pop('title', None)
@@ -291,8 +292,10 @@ def side_hist_plot(xdata, ydata, bins=30, external_axes=None, fit=True, **kwargs
     ax_plot = None
     ax_hist = None
     
-    if external_axes is None:   
-        fig = plt.figure(figsize=figsize)
+    if external_axes is None:
+        if num is not None:
+            plt.close(num)
+        fig = plt.figure(figsize=figsize, num=num)
         gs = GridSpec(4,5)
 
         ax_plot = fig.add_subplot(gs[:,0:3])
