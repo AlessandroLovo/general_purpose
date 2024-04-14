@@ -32,7 +32,22 @@ logger.level = logging.INFO
 
 MAX_FILENAME_LENGTH = 128
 
-######## time formatting ##########
+######## FORMATTING ##########
+
+def scientific_notation(x, decimals=1):
+    '''
+    Returns a string with the format <x> \cdot 10^<exp>
+
+    Examples:
+    >>> scientific_notation(100)
+    '1.0 \\\\cdot 10^{2}'
+    >>> scientific_notation(np.pi**7, decimals=3)
+    '3.020 \\\\cdot 10^{3}'
+    '''
+    exp = np.floor(np.log10(np.abs(x)))
+    return fr'{x/10**exp:.{decimals}f} \cdot 10^{{{int(exp)}}}'
+
+### time ###
 def now():
     '''
     Returns the current time as string formatted as year-month-day hour:minute:second
