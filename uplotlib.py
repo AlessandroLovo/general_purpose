@@ -368,7 +368,7 @@ def df2latex(df, float_digits=2, ufloat_digits=1):
     for i in range(len(df)):
         s = ''
         for key in df.keys():
-            v = df.loc[i][key]
+            v = df.iloc[i][key]
             
             if type(v) == str:
                 s += v
