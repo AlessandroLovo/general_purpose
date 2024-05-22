@@ -309,7 +309,7 @@ def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax
             v = vals[r,c]
 
             # format value
-            if np.isnan(v):
+            if np.isnan(uplt.nominal_value(v).item()):
                 v = '-'
             else:
                 v = uplt.frmt(v, text_digits, error_digits)
@@ -328,9 +328,9 @@ def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax
             tbl += v
         tbl += ' \\\\\n'
         if r < nrow - 1:
-            tbl += "\t\cline{%d-%d}\n" %(max(1,extra_left_cols), ncol + extra_left_cols)
+            tbl += leading_indentation + "\t\cline{%d-%d}\n" %(max(1,extra_left_cols), ncol + extra_left_cols)
         else:
-            tbl += "\t\cline{%d-%d}\n" %(max(1,extra_left_cols - bool(close_left)), ncol + extra_left_cols)
+            tbl += leading_indentation + "\t\cline{%d-%d}\n" %(max(1,extra_left_cols - bool(close_left)), ncol + extra_left_cols)
     
     tbl += leading_indentation + "\\end{tabular}"
     
