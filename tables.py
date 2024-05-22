@@ -140,7 +140,6 @@ def table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax=Non
         row_labels = list(range(vals.shape[0]))
     
     assert vals.shape == (len(row_labels), len(col_labels))
-    cmap = plt.get_cmap(cmap)
     
     if num:
         plt.close(num)
@@ -151,6 +150,7 @@ def table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax=Non
 
     # properly define norm
     if cmap is not None:
+        cmap = plt.get_cmap(cmap)
         if norm is None:
             if vmin is None:
                 vmin = np.nanmin(_vals)
