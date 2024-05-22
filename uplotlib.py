@@ -354,6 +354,19 @@ def side_hist_plot(xdata, ydata, bins=30, external_axes=None, fit=True, **kwargs
     return fig, (ax_plot, ax_hist), fit_params
 
 
+def frmt(v, float_digits=2, ufloat_digits=1):   
+    if type(v) == str:
+        return v
+    if type(v) in [unc.core.Variable, unc.core.AffineScalarFunc]:
+        return f'${v:.{ufloat_digits}uL}$'
+    if type(v) in [int, np.int64]:
+        return f'${v}$'
+    return f'${v:.{float_digits}f}$'
+
+def vectorized_frmt(x:np.ndarray, float_digits=2, ufloat_digits=1):
+    _x = x.flatten()
+    _x = np.array([frmt(v, float_digits, ufloat_digits) for v in _x])
+    return _x.reshape(x.shape)
 
 def df2latex(df, float_digits=2, ufloat_digits=1):
     '''
@@ -369,16 +382,7 @@ def df2latex(df, float_digits=2, ufloat_digits=1):
         s = ''
         for key in df.keys():
             v = df.iloc[i][key]
-            
-            if type(v) == str:
-                s += v
-            elif type(v) in [unc.core.Variable, unc.core.AffineScalarFunc]:
-                s += f'${v:.{ufloat_digits}uL}$'
-            elif type(v) in [int, np.int64]:
-                s += f'${v}$'
-            else:
-                s += f'${v:.{float_digits}f}$'
-                
+            s += frmt(v, float_digits, ufloat_digits)
             s += ' & '
             
         s = s[:-2] +  '\\\\'

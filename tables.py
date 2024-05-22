@@ -2,8 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import colorspacious as cs
 from PIL import Image
-from pathlib import Path
 import os
+import pandas as pd
+
+import uplotlib as uplt
 
 def file_no_duplicate(filename:str):
     """
@@ -74,33 +76,13 @@ def rescale(image:Image.Image, scale_factor:float=1):
     new_size_int = tuple([int(l) for l in new_size])
     return image.resize(new_size_int)
 
-def frmt(x:np.ndarray, precision=2):
-    '''
-    Formats a numpy array to have floats with `precision` digits
-
-    Parameters
-    ----------
-    x : np.ndarray
-        array to be formatted
-    precision : int, optional
-        number of digits, by default 2
-
-    Returns
-    -------
-    np.ndarray
-        formatted array
-    '''
-    _x = x.flatten()
-    _x = np.array([f'{v:.{precision}f}' for v in _x])
-    return _x.reshape(x.shape)
-
-def table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, color_range=None, cmap='hot', text_digits=2,
+def table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax=None, color_range=None, cmap='hot', text_digits=2, ufloat_digits=1,
           num=None, figsize=(7,3), xlabel=None, ylabel=None, title=None, label_fontsize=12, title_fontsize=14):
     """
     Generate a table plot with cells colored according to their value
     
     Parameters:
-    - vals: numpy.ndarray
+    - vals: numpy.ndarray or pandas.DataFrame
         The values to be plotted in the table. It should have shape (len(row_labels), len(col_labels)).
     - col_labels: list
         The labels for the columns of the table.
@@ -117,6 +99,8 @@ def table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, color_r
         The colormap used to map the values to colors. The default colormap is 'hot'.
     - text_digits: int, optional
         The number of digits to display in the table cells.
+    - ufloat_digits: int, optional
+        The number of significant digits to display in the table cells for ufloat values.
     - num: int, optional
         The number of the figure. If provided, the figure will be closed before creating a new one.
     - figsize: tuple, optional
@@ -136,6 +120,19 @@ def table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, color_r
     - matplotlib.figure.Figure
         The generated table plot figure.
     """
+    # deal with vals as DataFrame
+    if isinstance(vals, pd.DataFrame):
+        vals = vals.values
+        if col_labels is None:
+            col_labels = vals.columns
+        if row_labels is None:
+            row_labels = vals.index
+    
+    if col_labels is None:
+        col_labels = list(range(vals.shape[1]))
+    if row_labels is None:
+        row_labels = list(range(vals.shape[0]))
+    
     assert vals.shape == (len(row_labels), len(col_labels))
     cmap = plt.get_cmap(cmap)
     
@@ -144,20 +141,22 @@ def table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, color_r
     fig = plt.figure(num=num, figsize=figsize)
     ax = fig.add_subplot(111, frameon=False, xticks=[], yticks=[])
     
+    _vals = uplt.nominal_value(vals)
+
     # properly define norm
     if norm is None:
         if vmin is None:
-            vmin = np.nanmin(vals)
+            vmin = np.nanmin(_vals)
         if vmax is None:
-            vmax = np.nanmax(vals)
+            vmax = np.nanmax(_vals)
         if color_range is not None:
             assert len(color_range) == 2
             assert color_range[0] < color_range[1]
             vmin, vmax = (np.array([0,1]) - color_range[0]) * (vmax - vmin) / (color_range[1] - color_range[0]) + vmin
         norm = plt.Normalize(vmin, vmax)
-    colours = cmap(norm(vals))
+    colours = cmap(norm(_vals))
 
-    the_table=plt.table(cellText=frmt(vals,text_digits), rowLabels=row_labels, colLabels=col_labels, 
+    the_table=plt.table(cellText=uplt.vectorized_frmt(vals,text_digits,ufloat_digits), rowLabels=row_labels, colLabels=col_labels, 
                         colWidths = [1/(vals.shape[1] + 1)]*vals.shape[1],
                         loc='center', 
                         cellColours=colours,
@@ -172,7 +171,7 @@ def table(vals, col_labels, row_labels, norm=None, vmin=None, vmax=None, color_r
     
     return fig
 
-def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax=None, color_range=None, cmap='hot', text_digits=2, rgb_digits=8, white_text_if_lightness_below=25, xlabel=None, ylabel=None, title=None, center_title=False, side_xlabel=False, close_left=True, close_top=True, leading_indentation=0):
+def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax=None, color_range=None, cmap='hot', text_digits=2, error_digits=1, rgb_digits=8, white_text_if_lightness_below=25, xlabel=None, ylabel=None, title=None, center_title=False, side_xlabel=False, close_left=True, close_top=True, use_midrule=True, leading_indentation=0):
     """
     Generates a LaTeX table coloring the cells based on their values.
 
@@ -181,7 +180,7 @@ def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax
     \\usepackage[table]{xcolor}
     
     Args:
-        vals (ndarray): A 2D array of values for the table. It should have shape (len(row_labels), len(col_labels)).
+        vals (ndarray|pd.DataFrame): A 2D array of values for the table. It should have shape (len(row_labels), len(col_labels)).
         col_labels (list): A list of column labels.
         row_labels (list): A list of row labels.
         norm (Normalize, optional): A normalization object to normalize the values. Defaults to None.
@@ -189,6 +188,7 @@ def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax
         vmax (float, optional): The maximum value for the normalization. Defaults to None.
         cmap (Colormap, optional): The colormap to use for coloring the table cells. Defaults to plt.cm.hot.
         text_digits (int, optional): The number of digits to display for the values in the table cells. Defaults to 2.
+        error_digits (int, optional): The number of significan digits of the error in case the values are ufloats. Defaults to 1.
         rgb_digits (int, optional): The number of digits to display for the RGB values of the cell colors. Defaults to 8.
         xlabel (str, optional): The label for the x-axis. Defaults to None.
         ylabel (str, optional): The label for the y-axis. Defaults to None.
@@ -196,11 +196,22 @@ def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax
         side_xlabel (bool, optional): Whether to display the xlabel on the side instead of on top. Defaults to False.
         close_left (bool, optional): Whether to close the left border of the table. Defaults to True.
         close_top (bool, optional): Whether to close the top border of the table. Defaults to True.
+        use_midrule (bool, optional): Whether to use midrule or hline in the table. Defaults to True (midrule).
+        leading_indentation (int, optional): The indentation of the table, for easier copy-pasting. Defaults to 0.
     
     Returns:
         str: The LaTeX code for the generated table, as string.
     """
     leading_indentation = '\t' * leading_indentation
+
+    # deal with vals as DataFrame
+    if isinstance(vals, pd.DataFrame):
+        vals = vals.values
+        if col_labels is None:
+            col_labels = vals.columns
+        if row_labels is None:
+            row_labels = vals.index
+
     if row_labels is not None:
         assert vals.shape[0] == len(row_labels)
     else:
@@ -210,23 +221,27 @@ def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax
     else:
         assert xlabel is None, 'If col_labels is None, xlabel must be None'
     nrow, ncol = vals.shape
-    cmap = plt.get_cmap(cmap)
 
     extra_left_cols = bool(ylabel) + (row_labels is not None)
 
-    # properly define norm
-    if norm is None:
-        if vmin is None:
-            vmin = np.nanmin(vals)
-        if vmax is None:
-            vmax = np.nanmax(vals)
-        if color_range is not None:
-            assert len(color_range) == 2
-            assert color_range[0] < color_range[1]
-            vmin, vmax = (np.array([0,1]) - color_range[0]) * (vmax - vmin) / (color_range[1] - color_range[0]) + vmin
-        norm = plt.Normalize(vmin, vmax)
-        
-    colours = cmap(norm(vals))
+    if cmap is not None:
+        cmap = plt.get_cmap(cmap)
+
+        _vals = uplt.nominal_value(vals)
+
+        # properly define norm
+        if norm is None:
+            if vmin is None:
+                vmin = np.nanmin(_vals)
+            if vmax is None:
+                vmax = np.nanmax(_vals)
+            if color_range is not None:
+                assert len(color_range) == 2
+                assert color_range[0] < color_range[1]
+                vmin, vmax = (np.array([0,1]) - color_range[0]) * (vmax - vmin) / (color_range[1] - color_range[0]) + vmin
+            norm = plt.Normalize(vmin, vmax)
+            
+        colours = cmap(norm(_vals))
     
     if side_xlabel and xlabel and row_labels is not None:
         side_xlabel = xlabel
@@ -246,7 +261,7 @@ def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax
     if close_top or not xlabel:
         tbl += leading_indentation +"\t\cline{%d-%d}\n" %(1 + extra_left_cols, ncol + extra_left_cols)
     elif title:
-        tbl += leading_indentation + "\t\midrule\n"
+        tbl += leading_indentation + "\t%s\n" %('\midrule' if use_midrule else '\hline')
     
     # xlabel top line
     if xlabel:
@@ -283,17 +298,25 @@ def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax
             if c > 0:
                 tbl += ' & '
             v = vals[r,c]
-            rgb = ''
+
+            # format value
             if np.isnan(v):
                 v = '-'
-                rgb = '1,1,1' # make the cell white
             else:
-                v = f'{v:.{text_digits}f}'
-                rgb = colours[r,c,:3] # get rid of the alpha parameter
-                if white_text_if_lightness_below and rgb2lab(rgb)[0] < white_text_if_lightness_below:
-                    v = '\\textcolor{white}{%s}' %v
-                rgb = ','.join([f'{_rgb:.{rgb_digits}f}' for _rgb in rgb])
-            tbl += "\cellcolor[rgb]{" + rgb + '}' + v
+                v = uplt.frmt(v, text_digits, error_digits)
+
+            # deal with color
+            if cmap is not None:
+                if v == '-':
+                    rgb = '1,1,1' # make the cell white
+                else:
+                    rgb = colours[r,c,:3] # get rid of the alpha parameter
+                    if white_text_if_lightness_below and rgb2lab(rgb)[0] < white_text_if_lightness_below:
+                        v = '\\textcolor{white}{%s}' %v
+                    rgb = ','.join([f'{_rgb:.{rgb_digits}f}' for _rgb in rgb])
+                tbl += "\cellcolor[rgb]{" + rgb + '}'
+
+            tbl += v
         tbl += ' \\\\\n'
         if r < nrow - 1:
             tbl += "\t\cline{%d-%d}\n" %(max(1,extra_left_cols), ncol + extra_left_cols)
