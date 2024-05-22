@@ -150,17 +150,20 @@ def table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax=Non
     _vals = uplt.nominal_value(vals)
 
     # properly define norm
-    if norm is None:
-        if vmin is None:
-            vmin = np.nanmin(_vals)
-        if vmax is None:
-            vmax = np.nanmax(_vals)
-        if color_range is not None:
-            assert len(color_range) == 2
-            assert color_range[0] < color_range[1]
-            vmin, vmax = (np.array([0,1]) - color_range[0]) * (vmax - vmin) / (color_range[1] - color_range[0]) + vmin
-        norm = plt.Normalize(vmin, vmax)
-    colours = cmap(norm(_vals))
+    if cmap is not None:
+        if norm is None:
+            if vmin is None:
+                vmin = np.nanmin(_vals)
+            if vmax is None:
+                vmax = np.nanmax(_vals)
+            if color_range is not None:
+                assert len(color_range) == 2
+                assert color_range[0] < color_range[1]
+                vmin, vmax = (np.array([0,1]) - color_range[0]) * (vmax - vmin) / (color_range[1] - color_range[0]) + vmin
+            norm = plt.Normalize(vmin, vmax)
+        colours = cmap(norm(_vals))
+    else:
+        colours = None
 
     the_table=plt.table(cellText=uplt.vectorized_frmt(vals,text_digits,ufloat_digits), rowLabels=row_labels, colLabels=col_labels, 
                         colWidths = [1/(vals.shape[1] + 1)]*vals.shape[1],
