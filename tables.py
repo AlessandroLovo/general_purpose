@@ -128,11 +128,11 @@ def table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax=Non
     """
     # deal with vals as DataFrame
     if isinstance(vals, pd.DataFrame):
-        vals = vals.values
         if col_labels is None:
             col_labels = vals.columns
         if row_labels is None:
             row_labels = vals.index
+        vals = vals.values
     
     if col_labels is None:
         col_labels = list(range(vals.shape[1]))
@@ -212,11 +212,11 @@ def tex_table(vals, col_labels=None, row_labels=None, norm=None, vmin=None, vmax
 
     # deal with vals as DataFrame
     if isinstance(vals, pd.DataFrame):
-        vals = vals.values
         if col_labels is None:
             col_labels = vals.columns
         if row_labels is None:
             row_labels = vals.index
+        vals = vals.values
 
     if row_labels is not None:
         assert vals.shape[0] == len(row_labels)
