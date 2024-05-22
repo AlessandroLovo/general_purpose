@@ -4,6 +4,12 @@ import colorspacious as cs
 from PIL import Image
 import os
 import pandas as pd
+from pathlib import Path
+
+import sys
+path_to_gp = str(Path(__file__).resolve().parent)
+if not path_to_gp in sys.path:
+    sys.path.append(path_to_gp)
 
 import uplotlib as uplt
 
