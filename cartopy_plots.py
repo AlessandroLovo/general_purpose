@@ -142,6 +142,7 @@ def geo_plotter(m, lon, lat, values, mode='contourf',
     im : the plotted object
     '''
     orientation = kwargs.pop('orientation','vertical') # colorbar orientation
+    extend = kwargs.pop('extend', 'both') # extend colorbar
     assert lon.shape == lat.shape == values.shape, 'lon, lat and values must have the same shape'
 
     if mode in ['scatter', 'pcolormesh']:
@@ -161,10 +162,10 @@ def geo_plotter(m, lon, lat, values, mode='contourf',
 
     if mode == 'contourf':
         im = m.contourf(_lon, _lat, _values, transform=data_proj,
-                        levels=levels, cmap=cmap, extend='both', **kwargs)
+                        levels=levels, cmap=cmap, extend=extend, **kwargs)
     elif mode == 'contour':
         im = m.contour(_lon, _lat, _values, transform=data_proj,
-                       levels=levels, cmap=cmap, extend='both', **kwargs)
+                       levels=levels, cmap=cmap, extend=extend, **kwargs)
     elif mode == 'pcolormesh':
         if levels is not None:
             logger.warning('Ignoring levels kwarg')
@@ -183,7 +184,7 @@ def geo_plotter(m, lon, lat, values, mode='contourf',
     if draw_gridlines:
         m.gridlines(draw_labels=draw_labels)
     if put_colorbar:
-        plt.colorbar(im, label=colorbar_label, extend='both', orientation=orientation)
+        plt.colorbar(im, label=colorbar_label, extend=extend, orientation=orientation)
     if title is not None:
         m.set_title(title, fontsize=20)
 
@@ -637,7 +638,7 @@ def multiple_field_plot(lon, lat, f, significance=None, projections=ccrs.Orthogr
 
     if one_fig_layout:
         if common_colorbar:
-            plt.colorbar(ims[-1], label=kwargs.pop('colorbar_label', None), extend='both')
+            plt.colorbar(ims[-1], label=kwargs.pop('colorbar_label', None), extend=kwargs.get('extend','both'))
         if apply_tight_layout:
             fig.tight_layout()
 
