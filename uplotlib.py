@@ -85,7 +85,7 @@ def errorband(x, y, ax=None, band_alpha=0.5, **kwargs):
     y_val = nominal_value(y)
     line = ax.plot(x_val, y_val, color=color, **kwargs)
     if color is None:
-        color = plt.gca().lines[-1].get_color()
+        color = plt.gca().line[-1].get_color()
 
     shadey = None
     y_std = std_dev(y)
